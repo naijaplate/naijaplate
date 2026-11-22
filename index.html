@@ -262,6 +262,13 @@
   #weightPanel .mactions { margin-top: 4px; }
   .report { display: none; }
 
+  /* ---------- Legal ---------- */
+  .legal details { border-top: 1px solid var(--line); padding: 4px 0; }
+  .legal summary { padding: 10px 0; }
+  .legal h3 { margin: 14px 0 4px; font-size: 0.95rem; }
+  .legal p, .legal li { color: var(--muted); font-size: 0.92rem; margin: 4px 0; }
+  .legal ul { padding-left: 20px; margin: 4px 0; }
+
   /* ---------- Diet ---------- */
   .diet-box { display: grid; gap: 12px; grid-template-columns: 1fr; margin-bottom: 12px; align-items: end; }
   @media (min-width: 720px) { .diet-box { grid-template-columns: 1fr 2fr; } }
@@ -340,7 +347,7 @@
 
   @media print {
     body.print-report .report { display: block !important; color: #000; }
-    body.print-report #view-meals, body.print-report #share, body.print-report #tools, body.print-report #contact, body.print-report #trialBanner { display: none !important; }
+    body.print-report #view-meals, body.print-report #legal, body.print-report #share, body.print-report #tools, body.print-report #contact, body.print-report #trialBanner { display: none !important; }
     .report h1 { margin: 0 0 4px; font-size: 1.5rem; }
     .report table { width: 100%; border-collapse: collapse; margin: 12px 0; }
     .report th, .report td { border-bottom: 1px solid #ccc; padding: 6px 8px; text-align: left; }
@@ -611,6 +618,59 @@
     <div class="mactions" id="contactLinks"></div>
   </section>
 
+  <section class="panel no-print legal" id="legal" aria-label="Privacy and terms" style="margin-top:24px">
+    <h2>Privacy and terms</h2>
+    <details id="privacy">
+      <summary>Privacy Policy</summary>
+      <p><i>Last updated: 22 November 2026</i></p>
+      <h3>1. About NaijaPlate</h3>
+      <p>NaijaPlate is a calorie tracker and meal planner for adults aged 18 and over. In this policy, "we" and "us" mean NaijaPlate.</p>
+      <h3>2. What stays on your device</h3>
+      <p>The things you enter, such as foods, water, weight, your plan details (age, height, weight, activity, goal), diet choices, and your free trial or Premium status, are saved in your own browser on your own device. We do not receive this information on a server and we cannot see it.</p>
+      <h3>3. What we may receive</h3>
+      <ul>
+        <li><b>Your email</b>, only if you join the waitlist. It goes to the form service we use to collect it.</li>
+        <li><b>Payment details</b>, only if you subscribe. Payments are handled by Paystack. We do not see or store your card details. We may see your name, email, and payment status so we can send your access code.</li>
+        <li><b>Messages</b> you send us by email, call, or WhatsApp.</li>
+        <li><b>Visit counts</b>, if we switch on a privacy-focused analytics tool, so we can see how many people use the site.</li>
+      </ul>
+      <h3>4. How we use it</h3>
+      <p>To run the site, send your Premium access code, reply to your messages, and send updates you asked for. We do not sell your personal information.</p>
+      <h3>5. Services we use</h3>
+      <p>We use hosting (Netlify), payments (Paystack), and a form service for the waitlist. These providers handle data under their own policies.</p>
+      <h3>6. Your choices</h3>
+      <p>You can delete the data on your device any time with the "Delete all saved data" button on the Progress tab, or by clearing your browser data. To remove your email from our list, or to ask what we hold about you, contact us at <span data-cemail></span>.</p>
+      <h3>7. Security</h3>
+      <p>We take reasonable steps to protect information, but no website can promise perfect security. Because your entries stay on your device, keep your phone secure.</p>
+      <h3>8. Children</h3>
+      <p>NaijaPlate is not for anyone under 18, and we do not knowingly collect information from children.</p>
+      <h3>9. Changes and contact</h3>
+      <p>We may update this policy and will change the date above when we do. We aim to handle personal data in line with applicable Nigerian data protection law. Questions? Contact us at <span data-cemail></span>.</p>
+    </details>
+    <details id="terms">
+      <summary>Terms of Use</summary>
+      <p><i>Last updated: 22 November 2026</i></p>
+      <h3>1. Not medical advice</h3>
+      <p>NaijaPlate gives general guidance based on standard formulas and average food values. Calories, macros, gram amounts, meal plans, and weight projections are estimates. They are not medical advice. Speak to a doctor or dietitian before changing your diet, especially if you are pregnant, have a medical condition or food allergy, or have a history of disordered eating. If you have an allergy, always check ingredients and labels yourself.</p>
+      <h3>2. Who can use it</h3>
+      <p>You must be 18 or older to use NaijaPlate.</p>
+      <h3>3. Free and Premium</h3>
+      <p>The tracker, planner, weight log, water tracker, and progress chart are free. The weekly meal plan with diet options, grocery list, and weekly report are Premium. You can try Premium free for <span data-trial-days></span> days. After that, Premium costs <span data-price-monthly></span> per month or <span data-price-yearly></span> per year. Prices may change, and we will show the current price on this page.</p>
+      <h3>4. Payments and access codes</h3>
+      <p>Payments are processed by Paystack. After you pay, we send you a personal access code to unlock Premium. Please do not share or resell your code. We may disable a code that is shared or misused. To cancel, or if you think you were charged by mistake, contact us at <span data-cemail></span> and we will look into it.</p>
+      <h3>5. Accuracy</h3>
+      <p>Food values vary by recipe, portion, and cooking method. We try to keep the information useful, but we cannot promise it is complete or error-free. Results are not guaranteed.</p>
+      <h3>6. Fair use</h3>
+      <p>Do not copy, resell, or scrape the site, try to break or bypass it, or use it for anything unlawful.</p>
+      <h3>7. Liability</h3>
+      <p>NaijaPlate is provided "as is". To the extent the law allows, we are not responsible for losses or health outcomes that result from using the site or following its estimates.</p>
+      <h3>8. Changes and law</h3>
+      <p>We may change these terms or the site and will update the date above. These terms are governed by the laws of Nigeria.</p>
+      <h3>9. Contact</h3>
+      <p>Questions? Contact us at <span data-cemail></span>.</p>
+    </details>
+  </section>
+
   <p class="note">Calories, macros, and gram amounts are estimates based on standard formulas and average foods. This is general guidance, not medical advice. It is for healthy adults, so speak to a doctor or dietitian first if you are pregnant, have a medical condition, or have a history of disordered eating. Weights of food are for cooked, ready-to-eat portions.</p>
 </div>
 
@@ -626,9 +686,9 @@
     paymentLinkYearly: "",              // same, for the yearly plan
     accessCodes: [],                    // codes you send to people after they pay, e.g. ["NP-7K2M9Q"]
     waitlistEndpoint: "",               // paste a Formspree or similar form URL to receive emails
-    contactEmail: "oayo80652@gmail.com", // shown in the Contact section and on the advertise card
+    contactEmail: "naijaplate.ng@gmail.com", // shown in the Contact section and on the advertise card
     contactPhone: "09053761263",        // shown as Call and WhatsApp buttons
-    siteUrl: "",                        // your published link, e.g. "https://naijaplate.netlify.app" (used by the Share buttons)
+    siteUrl: "https://naijaplate-ng.netlify.app", // your published link, e.g. "https://naijaplate.netlify.app" (used by the Share buttons)
     analyticsDomain: "",                // optional: your domain for Plausible analytics, e.g. "naijaplate.com"
     affiliates: [],                     // e.g. [{ name: "Digital kitchen scale", text: "Weigh your food in grams", url: "https://example.com" }]
     sponsors: []                        // e.g. [{ name: "FitHub Lagos", text: "10% off gym passes", url: "https://example.com" }]
@@ -1692,6 +1752,14 @@
     document.head.appendChild(sc);
   }
 
+  function renderLegal() {
+    const fill = (sel, text) => document.querySelectorAll(sel).forEach((el) => { el.textContent = text; });
+    fill("[data-cemail]", CONFIG.contactEmail || "the contact details on this page");
+    fill("[data-trial-days]", String(CONFIG.trialDays));
+    fill("[data-price-monthly]", money(CONFIG.monthlyPrice));
+    fill("[data-price-yearly]", money(CONFIG.yearlyPrice));
+  }
+
   /* ============ VIEW + RENDER ALL ============ */
   function setView(v) {
     state.view = v;
@@ -2010,6 +2078,7 @@
     fillPlanForm();
     renderPremium();
     renderContact();
+    renderLegal();
     renderTools();
     renderShare();
     loadAnalytics();
