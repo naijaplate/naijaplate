@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NaijaPlate: Calorie and Weight Goal Planner</title>
+<style>
+  :root {
+    --bg: #E9F0ED;
+    --surface: #FFFFFF;
+    --surface-2: #F3F7F5;
+    --ink: #12302A;
+    --muted: #55706A;
+    --line: #CBDAD5;
+    --accent: #1F7A5C;
+    --on-accent: #FFFFFF;
+    --ring: #E8A90C;
+    --over: #BF3F2B;
+    --protein: #2E6F9E;
+    --carbs: #D99A00;
+    --fat: #C8553D;
+    --veg: #4E9F3D;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1B18;
+      --surface: #152622;
+      --surface-2: #1B302B;
+      --ink: #E6F2EE;
+      --muted: #94ADA6;
+      --line: #28413B;
+      --accent: #4CC49A;
+      --on-accent: #0E1B18;
+      --ring: #F0B323;
+      --over: #FF7A63;
+      --protein: #6AAEE0;
+      --carbs: #F0B323;
+      --fat: #F0836B;
+      --veg: #7CC76A;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Avenir Next", "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { padding: 8px 0 14px; }
+  h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.01em; }
+  header p { margin: 4px 0 0; color: var(--muted); max-width: 56ch; }
+  h2 { margin: 0 0 12px; font-size: 1.05rem; }
+  h3 { margin: 0 0 10px; font-size: 0.98rem; }
+
+  .tabs { display: flex; gap: 6px; margin: 4px 0 18px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  .tabs button {
+    flex: 1; padding: 9px 8px; border: 0; border-radius: 9px; background: transparent;
+    cursor: pointer; font-weight: 700; color: var(--muted);
+  }
+  .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .btn {
+    padding: 8px 14px; border-radius: 8px; border: 0; cursor: pointer;
+    background: var(--accent); color: var(--on-accent); font-weight: 700; white-space: nowrap;
+  }
+  .btn.quiet { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 600; }
+  .empty { color: var(--muted); padding: 14px 2px; margin: 0; }
+  .field label { display: block; color: var(--muted); font-size: 0.86rem; margin-bottom: 3px; }
+  .field input, .field select {
+    width: 100%; padding: 9px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--surface-2);
+  }
+
+  /* ---------- Track view ---------- */
+  .layout {
+    display: grid; gap: 16px; grid-template-columns: 1fr;
+    grid-template-areas: "total" "foods" "plate";
+  }
+  @media (min-width: 880px) {
+    .layout {
+      grid-template-columns: 1.15fr 1fr;
+      grid-template-areas: "foods total" "foods plate";
+      grid-template-rows: auto 1fr;
+      align-items: start;
+    }
+  }
+  .daynav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+  .daynav .label { font-weight: 700; font-size: 1.05rem; text-align: center; flex: 1; }
+  .daynav button {
+    width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--surface-2); cursor: pointer; font-weight: 700; line-height: 1;
+  }
+  .daynav button:disabled { opacity: 0.35; cursor: default; }
+
+  #total { grid-area: total; }
+  .ring-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .ring { position: relative; width: 190px; height: 190px; flex: none; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .track { stroke: var(--surface-2); }
+  .ring .bar { stroke: var(--ring); stroke-linecap: round; }
+  .ring.over .bar { stroke: var(--over); }
+  @media (prefers-reduced-motion: no-preference) {
+    .ring .bar { transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease; }
+    .prog .fill, .stack span, .scen .fill { transition: width 0.4s ease; }
+  }
+  .ring-text {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+  }
+  .ring-text .num { font-size: 2.8rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .ring-text .unit { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+  .goal-box { flex: 1; min-width: 180px; }
+  .goal-box label { display: block; color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; }
+  .goal-box input {
+    width: 130px; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--surface-2);
+  }
+  #status { margin: 12px 0 0; font-weight: 700; }
+  #status.over { color: var(--over); }
+
+  .prog-rows { margin-top: 18px; display: grid; gap: 10px; }
+  .prog .top { display: flex; justify-content: space-between; font-size: 0.92rem; margin-bottom: 4px; }
+  .prog .top b { font-weight: 700; }
+  .prog .track { height: 10px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+  .prog .fill { height: 100%; border-radius: 6px; width: 0; }
+  .prog-hint { margin: 12px 0 0; font-size: 0.86rem; color: var(--muted); }
+  .link { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 700; cursor: pointer; text-decoration: underline; }
+
+  #foods { grid-area: foods; }
+  .search { width: 100%; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 0.92rem; }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  .food-list { list-style: none; margin: 0; padding: 0; max-height: 62vh; overflow-y: auto; border-top: 1px solid var(--line); }
+  .food { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+  .food .name { display: block; font-weight: 600; }
+  .food .serv { display: block; color: var(--muted); font-size: 0.86rem; }
+  .food .kcal { font-weight: 700; white-space: nowrap; }
+  details { margin-top: 14px; }
+  summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+  .custom-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 10px 0; }
+  .custom-grid .wide { grid-column: 1 / -1; }
+
+  #plate { grid-area: plate; }
+  .plate-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .plate-head h2 { margin: 0; }
+  .plate-list { list-style: none; margin: 0; padding: 0; }
+  .item { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+  .item .name { font-weight: 600; }
+  .item .meta { color: var(--muted); font-size: 0.86rem; }
+  .item .total { font-weight: 700; text-align: right; }
+  .stepper { display: inline-flex; align-items: center; gap: 8px; }
+  .stepper button { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; font-weight: 700; line-height: 1; }
+  .stepper .q { min-width: 2.2ch; text-align: center; font-weight: 700; }
+
+  /* ---------- Plan view ---------- */
+  .plan-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (min-width: 720px) { .plan-form { grid-template-columns: repeat(4, 1fr); } }
+  .plan-form .span2 { grid-column: span 2; }
+  .plan-note { margin: 12px 0 0; color: var(--muted); font-size: 0.86rem; }
+  #planResults { margin-top: 16px; display: grid; gap: 16px; }
+  .hero-plan {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;
+    background: var(--ink); color: var(--surface); border-radius: 14px; padding: 20px;
+  }
+  .hero-plan .big { font-size: 2.6rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .hero-plan .sub { margin-top: 6px; opacity: 0.85; }
+  .hero-plan .btn { background: var(--ring); color: #12302A; }
+  .notice { margin: 0; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); border-left: 4px solid var(--carbs); font-size: 0.92rem; }
+  .cards { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 880px) { .cards { grid-template-columns: 1fr 1fr; } .cards .wide { grid-column: 1 / -1; } }
+
+  .donut-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .donut { position: relative; width: 170px; height: 170px; border-radius: 50%; flex: none; }
+  .donut::after { content: ""; position: absolute; inset: 26px; border-radius: 50%; background: var(--surface); }
+  .donut .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1; text-align: center; }
+  .donut .center b { font-size: 1.6rem; line-height: 1; }
+  .donut .center span { font-size: 0.8rem; color: var(--muted); }
+  .dl { display: grid; gap: 8px; flex: 1; min-width: 160px; }
+  .dl div { display: flex; align-items: center; gap: 8px; }
+  .dl i { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .dl .g { margin-left: auto; font-weight: 800; }
+
+  .scen { display: grid; gap: 12px; }
+  .scen .row { display: grid; grid-template-columns: 92px 1fr auto; gap: 10px; align-items: center; font-size: 0.92rem; }
+  .scen .track { height: 18px; background: var(--surface-2); border-radius: 9px; overflow: hidden; }
+  .scen .fill { height: 100%; background: var(--line); border-radius: 9px; }
+  .scen .row.on .fill { background: var(--accent); }
+  .scen .row.on .nm { font-weight: 800; }
+  .scen .sm { grid-column: 2 / -1; margin-top: -8px; color: var(--muted); font-size: 0.8rem; }
+
+  .gram-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .gram { border-radius: 12px; padding: 12px; background: var(--surface-2); border-top: 5px solid; }
+  .gram .n { font-size: 1.7rem; font-weight: 800; line-height: 1.1; }
+  .gram .l { font-size: 0.82rem; color: var(--muted); }
+
+  .stack { display: flex; height: 26px; border-radius: 8px; overflow: hidden; background: var(--surface-2); margin: 10px 0; }
+  .stack span { height: 100%; display: block; }
+  .meal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .meal { background: var(--surface-2); border-radius: 12px; padding: 12px; }
+  .meal .n { font-size: 1.4rem; font-weight: 800; line-height: 1.1; }
+  .meal .l { font-size: 0.82rem; color: var(--muted); }
+  .meal i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+
+  .chart-svg { width: 100%; height: auto; display: block; }
+  .chart-svg text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+  .chart-svg .axis { stroke: var(--line); stroke-width: 1; }
+  .chart-svg .line { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .chart-svg .dot { fill: var(--accent); }
+  .chart-svg .val { fill: var(--ink); font-weight: 700; }
+
+  .bmi-bar { position: relative; display: flex; height: 16px; border-radius: 8px; overflow: hidden; margin: 18px 0 6px; }
+  .bmi-bar span { display: block; height: 100%; }
+  .bmi-mark { position: absolute; top: -6px; width: 4px; height: 28px; background: var(--ink); border-radius: 2px; transform: translateX(-2px); }
+  .bmi-wrap { position: relative; }
+  .bmi-labels { display: flex; justify-content: space-between; font-size: 0.76rem; color: var(--muted); }
+
+  /* ---------- Progress view ---------- */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+  .stat .v { font-size: 1.6rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.01em; }
+  .stat .l { color: var(--muted); font-size: 0.86rem; }
+  .chart { position: relative; height: 170px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; background: none; border: 0; padding: 0; cursor: pointer; height: 170px; }
+  .col .bar-fill { width: 70%; max-width: 44px; border-radius: 6px 6px 0 0; background: var(--accent); min-height: 3px; }
+  .col.over .bar-fill { background: var(--over); }
+  .col.empty-day .bar-fill { background: var(--line); }
+  .col .day { height: 26px; line-height: 26px; font-size: 0.82rem; color: var(--muted); }
+  .col[aria-pressed="true"] .day { color: var(--ink); font-weight: 800; text-decoration: underline; text-underline-offset: 4px; }
+  .goal-line { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--muted); pointer-events: none; opacity: 0.7; }
+  .chart-note { margin: 10px 0 0; color: var(--muted); font-size: 0.86rem; }
+  .history-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-top: 14px; }
+  #saveStatus { color: var(--muted); font-size: 0.86rem; margin: 0; max-width: 60ch; }
+
+  /* ---------- Trial and pricing ---------- */
+  .trial-banner { background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; font-size: 0.92rem; }
+  .trial-banner a { color: var(--ring); font-weight: 700; }
+  .price small { font-size: 0.9rem; font-weight: 600; opacity: 0.8; }
+  .price-sub { margin: 2px 0 8px; opacity: 0.85; font-size: 0.9rem; }
+  .trial-line { margin: 12px 0 8px; font-weight: 700; }
+  .cta { display: flex; flex-wrap: wrap; gap: 8px; }
+  .premium .btn { background: var(--ring); color: #12302A; }
+  .premium .btn.quiet { background: transparent; color: var(--surface); border: 1px solid var(--surface); }
+  #payMsg { margin: 8px 0 0; font-size: 0.88rem; min-height: 1.2em; }
+  .code-box { margin-top: 6px; }
+  .code-box summary { font-weight: 600; }
+  #codeMsg { margin: 6px 0 0; font-size: 0.9rem; min-height: 1.2em; }
+  .lock { border: 1px dashed var(--line); border-radius: 12px; padding: 20px; background: var(--surface-2); }
+  .lock p { margin: 6px 0 14px; color: var(--muted); }
+  a.btn { display: inline-block; text-decoration: none; }
+
+  /* ---------- Meal plan ---------- */
+  .tabs button { font-size: 0.92rem; }
+  .plate-head { flex-wrap: wrap; gap: 8px; }
+  .mgrid { display: grid; gap: 12px; grid-template-columns: 1fr; margin-top: 14px; }
+  @media (min-width: 720px) { .mgrid { grid-template-columns: 1fr 1fr; } }
+  .mcard { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--surface); }
+  .mhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .mlabel { color: var(--muted); font-size: 0.82rem; }
+  .mname { font-weight: 700; }
+  .mkcal { font-weight: 800; white-space: nowrap; }
+  .mparts { list-style: none; margin: 8px 0; padding: 0; }
+  .mparts li { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 0.92rem; }
+  .mparts li:first-child { border-top: 0; }
+  .mparts b { white-space: nowrap; }
+  .mmacros { color: var(--muted); font-size: 0.84rem; }
+  .mactions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mcard .mactions { margin-top: 10px; }
+  .shop { columns: 2; column-gap: 24px; list-style: none; padding: 0; margin: 8px 0 0; }
+  .shop li { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); break-inside: avoid; font-size: 0.92rem; }
+  @media (max-width: 520px) { .shop { columns: 1; } }
+  h3.mt { margin-top: 22px; }
+
+  /* ---------- Premium ---------- */
+  .premium { margin-top: 24px; background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  .premium h2 { font-size: 1.25rem; }
+  .tag { display: inline-block; margin-left: 8px; padding: 2px 10px; border-radius: 999px; background: var(--ring); color: #12302A; font-size: 0.74rem; font-weight: 800; vertical-align: middle; }
+  .plans { display: grid; gap: 14px; grid-template-columns: 1fr; margin: 14px 0; }
+  @media (min-width: 720px) { .plans { grid-template-columns: 1fr 1fr; } }
+  .plan-col { border: 1px solid rgba(128,128,128,0.45); border-radius: 12px; padding: 14px; }
+  .plan-col.pro { border-color: var(--ring); }
+  .plan-col h3 { margin-bottom: 6px; }
+  .plan-col ul { margin: 0; padding-left: 18px; }
+  .plan-col li { margin: 4px 0; }
+  .price { font-size: 1.4rem; font-weight: 800; }
+  .wait { display: flex; flex-wrap: wrap; gap: 10px; }
+  .wait input { flex: 1; min-width: 200px; padding: 10px 12px; border-radius: 8px; border: 0; background: var(--surface); color: var(--ink); }
+  .wait .btn { background: var(--ring); color: #12302A; }
+  #waitMsg { margin: 8px 0 0; font-size: 0.9rem; min-height: 1.3em; }
+  .sponsor { margin-top: 16px; padding: 14px; border: 1px dashed rgba(128,128,128,0.6); border-radius: 12px; font-size: 0.92rem; }
+  .sponsor small { display: block; opacity: 0.75; margin-bottom: 4px; }
+  .sponsor a { color: var(--ring); font-weight: 700; }
+
+  .note { margin: 22px 0 0; color: var(--muted); font-size: 0.86rem; max-width: 72ch; }
+
+  @media print {
+    :root { --bg: #fff; --surface: #fff; --surface-2: #f3f3f3; --ink: #000; --muted: #444; --line: #ccc; --accent: #1F7A5C; --protein: #2E6F9E; --carbs: #D99A00; --fat: #C8553D; --over: #BF3F2B; }
+    body { background: #fff; }
+    .tabs, header, #view-track, #view-plan, #view-progress, .premium, .note, .no-print { display: none !important; }
+    .panel { border: 0; padding: 0; }
+    .mcard { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>NaijaPlate</h1>
+    <p>Track what you eat, get a daily target and food portions in grams for losing, maintaining, or gaining weight, and watch your progress.</p>
+  </header>
+
+  <div class="trial-banner" id="trialBanner" hidden></div>
+
+  <nav class="tabs" aria-label="Sections">
+    <button type="button" data-view="track" aria-pressed="true">Track</button>
+    <button type="button" data-view="plan" aria-pressed="false">My plan</button>
+    <button type="button" data-view="meals" aria-pressed="false">Meal plan</button>
+    <button type="button" data-view="progress" aria-pressed="false">Progress</button>
+  </nav>
+
+  <!-- TRACK -->
+  <main class="layout" id="view-track">
+    <section class="panel" id="total" aria-label="Daily total">
+      <div class="daynav">
+        <button type="button" id="prevDay" aria-label="Previous day">&lsaquo;</button>
+        <span class="label" id="dayLabel">Today</span>
+        <button type="button" id="nextDay" aria-label="Next day">&rsaquo;</button>
+      </div>
+      <div class="ring-row">
+        <div class="ring" id="ring">
+          <svg viewBox="0 0 200 200" aria-hidden="true">
+            <circle class="track" cx="100" cy="100" r="84" fill="none" stroke-width="16"></circle>
+            <circle class="bar" id="bar" cx="100" cy="100" r="84" fill="none" stroke-width="16"
+                    stroke-dasharray="527.8" stroke-dashoffset="527.8"></circle>
+          </svg>
+          <div class="ring-text">
+            <span class="num" id="totalNum">0</span>
+            <span class="unit">kcal eaten</span>
+          </div>
+        </div>
+        <div class="goal-box">
+          <label for="goal">Daily goal (kcal)</label>
+          <input id="goal" type="number" min="500" max="10000" step="50" value="2000" inputmode="numeric">
+          <p id="status" aria-live="polite">2,000 kcal left</p>
+        </div>
+      </div>
+      <div class="prog-rows" id="macroRows"></div>
+      <p class="prog-hint" id="macroHint"></p>
+    </section>
+
+    <section class="panel" id="foods" aria-label="Find foods">
+      <h2>Add food</h2>
+      <input class="search" id="search" type="search" placeholder="Search foods, e.g. jollof, egg, banana" aria-label="Search foods" autocomplete="off">
+      <div class="chips" id="chips"></div>
+      <ul class="food-list" id="foodList"></ul>
+
+      <details>
+        <summary>Can't find it? Add your own food</summary>
+        <form id="customForm">
+          <div class="custom-grid field">
+            <div class="wide">
+              <label for="cName">Food name</label>
+              <input id="cName" required maxlength="40">
+            </div>
+            <div class="wide">
+              <label for="cKcal">Calories for one serving (kcal)</label>
+              <input id="cKcal" type="number" min="0" max="5000" required inputmode="numeric">
+            </div>
+            <div>
+              <label for="cP">Protein (g, optional)</label>
+              <input id="cP" type="number" min="0" max="500" inputmode="decimal">
+            </div>
+            <div>
+              <label for="cC">Carbs (g, optional)</label>
+              <input id="cC" type="number" min="0" max="500" inputmode="decimal">
+            </div>
+            <div>
+              <label for="cF">Fat (g, optional)</label>
+              <input id="cF" type="number" min="0" max="500" inputmode="decimal">
+            </div>
+          </div>
+          <button class="btn" type="submit">Add to plate</button>
+        </form>
+      </details>
+    </section>
+
+    <section class="panel" id="plate" aria-label="Your plate">
+      <div class="plate-head">
+        <h2 id="plateTitle">Your plate today</h2>
+        <button class="btn quiet" id="clear" type="button" hidden>Clear this day</button>
+      </div>
+      <ul class="plate-list" id="plateList"></ul>
+      <p class="empty" id="plateEmpty">Nothing logged for this day yet. Search for a food and tap Add.</p>
+    </section>
+  </main>
+
+  <!-- PLAN -->
+  <section id="view-plan" hidden>
+    <div class="panel">
+      <h2>Build your plan</h2>
+      <form class="plan-form field" id="planForm" onsubmit="return false">
+        <div><label for="pSex">Sex</label>
+          <select id="pSex"><option value="female">Female</option><option value="male">Male</option></select></div>
+        <div><label for="pAge">Age (18+)</label><input id="pAge" type="number" min="18" max="90" inputmode="numeric"></div>
+        <div><label for="pWeight">Weight (kg)</label><input id="pWeight" type="number" min="30" max="250" step="0.1" inputmode="decimal"></div>
+        <div><label for="pHeight">Height (cm)</label><input id="pHeight" type="number" min="120" max="230" inputmode="numeric"></div>
+        <div class="span2"><label for="pActivity">Activity level</label>
+          <select id="pActivity">
+            <option value="1.2">Mostly sitting, little exercise</option>
+            <option value="1.375">Light: exercise 1 to 3 days a week</option>
+            <option value="1.55">Moderate: exercise 3 to 5 days a week</option>
+            <option value="1.725">Very active: exercise 6 to 7 days a week</option>
+          </select></div>
+        <div><label for="pGoal">My goal</label>
+          <select id="pGoal"><option value="lose">Lose weight</option><option value="maintain">Maintain weight</option><option value="gain">Gain weight</option></select></div>
+        <div id="paceBox"><label for="pPace">Pace</label><select id="pPace"></select></div>
+        <div><label for="pMeals">Meals per day</label>
+          <select id="pMeals"><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="span2"><label for="pStaple">Staple I eat most</label>
+          <select id="pStaple"></select></div>
+        <div class="span2"><label for="pProtein">Protein I prefer</label>
+          <select id="pProtein"></select></div>
+      </form>
+      <p class="plan-note">The numbers in the form are an example. Replace them with yours.</p>
+      <div id="planResults"></div>
+    </div>
+  </section>
+
+  <!-- MEAL PLAN -->
+  <section id="view-meals" hidden>
+    <div class="panel">
+      <div class="plate-head">
+        <h2>Your weekly meal plan</h2>
+        <div class="mactions no-print" id="mealActions">
+          <button type="button" class="btn quiet" id="shuffle">Shuffle week</button>
+          <button type="button" class="btn quiet" id="printPlan">Print or save PDF</button>
+        </div>
+      </div>
+      <div id="mealPlan"></div>
+    </div>
+  </section>
+
+  <!-- PROGRESS -->
+  <section id="view-progress" hidden>
+    <div class="panel" aria-label="Weekly summary">
+      <h2>Your last 7 days</h2>
+      <div class="stats">
+        <div class="stat"><div class="v" id="sAvg">0</div><div class="l">average kcal per logged day</div></div>
+        <div class="stat"><div class="v" id="sLogged">0/7</div><div class="l">days logged</div></div>
+        <div class="stat"><div class="v" id="sOnGoal">0</div><div class="l">days at or under goal</div></div>
+      </div>
+      <div class="chart" id="chart"></div>
+      <p class="chart-note" id="macroAvg"></p>
+      <p class="chart-note">The dashed line is your daily goal. Tap a day to view or edit it on the Track tab.</p>
+      <div class="history-foot">
+        <p id="saveStatus">Your history saves automatically when you add food.</p>
+        <button class="btn quiet" id="wipe" type="button">Delete all saved data</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PREMIUM -->
+  <section class="panel premium" id="premium" aria-label="Premium">
+    <h2>NaijaPlate Premium</h2>
+    <div class="plans">
+      <div class="plan-col">
+        <h3>Free</h3>
+        <div class="price">&#8358;0</div>
+        <ul id="freeList"></ul>
+      </div>
+      <div class="plan-col pro">
+        <h3>Premium</h3>
+        <div class="price"><span id="priceMonthly"></span> <small>per month</small></div>
+        <p class="price-sub" id="priceYearly"></p>
+        <ul id="proList"></ul>
+        <p class="trial-line" id="trialLine"></p>
+        <div class="cta" id="premiumCta"></div>
+        <p id="payMsg" aria-live="polite"></p>
+      </div>
+    </div>
+    <details class="code-box">
+      <summary>Already paid? Enter your access code</summary>
+      <form class="wait" id="codeForm">
+        <input type="text" id="codeInput" placeholder="Access code" aria-label="Access code" autocomplete="off" required>
+        <button class="btn" type="submit">Unlock</button>
+      </form>
+      <p id="codeMsg" aria-live="polite"></p>
+    </details>
+    <h3 class="mt">Get notified when new Premium features launch</h3>
+    <form class="wait" id="waitForm">
+      <input type="email" id="waitEmail" placeholder="Your email" aria-label="Email for updates" required>
+      <button class="btn" type="submit">Notify me</button>
+    </form>
+    <p id="waitMsg" aria-live="polite"></p>
+    <div class="sponsor" id="sponsorSlot"></div>
+  </section>
+
+  <section class="panel no-print" id="contact" aria-label="Contact" style="margin-top:24px" hidden>
+    <h2>Contact NaijaPlate</h2>
+    <p class="chart-note" style="margin-top:0">Questions, feedback, or want to advertise? Reach out.</p>
+    <div class="mactions" id="contactLinks"></div>
+  </section>
+
+  <p class="note">Calories, macros, and gram amounts are estimates based on standard formulas and average foods. This is general guidance, not medical advice. It is for healthy adults, so speak to a doctor or dietitian first if you are pregnant, have a medical condition, or have a history of disordered eating. Weights of food are for cooked, ready-to-eat portions.</p>
+</div>
+
+<script>
+  /* ============ SITE OWNER SETTINGS ============ */
+  const CONFIG = {
+    currency: "₦",
+    monthlyPrice: 2500,                 // price per month
+    yearlyPrice: 25000,                 // price per year
+    trialDays: 7,                       // free trial length
+    lockMealPlan: true,                 // true = meal plan needs a trial or paid access; false = free for everyone
+    paymentLinkMonthly: "",             // paste your Paystack or Flutterwave payment link for the monthly plan
+    paymentLinkYearly: "",              // same, for the yearly plan
+    accessCodes: [],                    // codes you send to people after they pay, e.g. ["NP-7K2M9Q"]
+    waitlistEndpoint: "",               // paste a Formspree or similar form URL to receive emails
+    contactEmail: "oayo80652@gmail.com", // shown in the Contact section and on the advertise card
+    contactPhone: "09053761263",        // shown as Call and WhatsApp buttons
+    sponsors: []                        // e.g. [{ name: "FitHub Lagos", text: "10% off gym passes", url: "https://example.com" }]
+  };
+
+  /* ============ FOOD DATA ============ */
+  // name, category, serving, kcal, protein g, carbs g, fat g
+  const FOODS = [
+    ["Jollof rice", "Staples", "1 cup (~200 g)", 260, 5, 45, 7],
+    ["White rice, boiled", "Staples", "1 cup (~160 g)", 205, 4, 45, 0.4],
+    ["Fried rice", "Staples", "1 cup (~200 g)", 290, 7, 45, 9],
+    ["Pounded yam", "Staples", "1 wrap (~200 g)", 260, 3, 60, 0.4],
+    ["Eba (garri)", "Staples", "1 wrap (~250 g)", 330, 1, 79, 0.5],
+    ["Amala", "Staples", "1 wrap (~250 g)", 275, 4, 63, 0.5],
+    ["Fufu", "Staples", "1 wrap (~250 g)", 300, 1, 72, 0.3],
+    ["Boiled yam", "Staples", "1 cup (~150 g)", 177, 2, 42, 0.3],
+    ["Fried yam", "Staples", "5 pieces (~150 g)", 350, 3, 50, 15],
+    ["Boiled plantain", "Staples", "1 medium (~150 g)", 175, 1, 47, 0.3],
+    ["Fried plantain (dodo)", "Staples", "6 slices (~100 g)", 240, 1, 38, 10],
+    ["Spaghetti, boiled", "Staples", "1 cup", 220, 8, 43, 1.3],
+    ["Beans, boiled", "Staples", "1 cup", 200, 13, 36, 1],
+    ["Pap (ogi)", "Staples", "1 cup", 110, 2, 24, 0.5],
+    ["Oats, cooked", "Staples", "1 cup", 150, 5, 27, 3],
+    ["Bread", "Staples", "1 slice", 80, 3, 14, 1],
+    ["Sweet potato, boiled", "Staples", "1 medium", 112, 2, 26, 0.1],
+    ["Irish potato, boiled", "Staples", "1 medium", 130, 3, 30, 0.2],
+    ["Indomie noodles", "Staples", "1 pack (70 g dry)", 300, 7, 41, 12],
+
+    ["Egusi soup", "Soups & stews", "1 cup (~240 g)", 350, 15, 8, 30],
+    ["Efo riro", "Soups & stews", "1 cup", 220, 12, 6, 17],
+    ["Okra soup", "Soups & stews", "1 cup", 150, 8, 8, 10],
+    ["Tomato stew with beef", "Soups & stews", "1/2 cup (~120 g)", 200, 12, 6, 14],
+
+    ["Boiled egg", "Protein", "1 large", 78, 6, 0.6, 5],
+    ["Fried egg", "Protein", "1 large", 90, 6, 0.4, 7],
+    ["Grilled chicken breast", "Protein", "100 g", 165, 31, 0, 3.6],
+    ["Fried chicken drumstick", "Protein", "1 piece", 190, 16, 6, 11],
+    ["Fried fish (tilapia)", "Protein", "1 fillet (~100 g)", 200, 22, 5, 10],
+    ["Suya (beef)", "Protein", "100 g", 290, 24, 5, 19],
+    ["Moi moi", "Protein", "1 wrap (~150 g)", 210, 12, 20, 9],
+    ["Akara", "Protein", "1 ball (~40 g)", 100, 4, 8, 6],
+
+    ["Puff puff", "Snacks", "1 ball (~40 g)", 130, 2, 17, 6],
+    ["Chin chin", "Snacks", "1 handful (~30 g)", 150, 2, 20, 7],
+    ["Meat pie", "Snacks", "1 piece", 350, 10, 32, 21],
+    ["Groundnuts, roasted", "Snacks", "1 handful (~28 g)", 160, 7, 5, 14],
+    ["Pizza", "Snacks", "1 slice", 285, 12, 36, 10],
+    ["French fries", "Snacks", "1 medium portion", 365, 4, 48, 17],
+
+    ["Banana", "Fruit & veg", "1 medium", 105, 1.3, 27, 0.4],
+    ["Apple", "Fruit & veg", "1 medium", 95, 0.5, 25, 0.3],
+    ["Orange", "Fruit & veg", "1 medium", 62, 1.2, 15, 0.2],
+    ["Watermelon", "Fruit & veg", "1 cup", 46, 1, 11.5, 0.2],
+    ["Pineapple", "Fruit & veg", "1 cup chunks", 82, 1, 22, 0.2],
+    ["Mango", "Fruit & veg", "1 cup", 100, 1, 25, 0.6],
+    ["Avocado", "Fruit & veg", "1/2 fruit (~100 g)", 160, 2, 9, 15],
+    ["Mixed salad vegetables", "Fruit & veg", "1 cup", 20, 1, 4, 0.2],
+
+    ["Milk, whole", "Drinks & extras", "1 cup", 150, 8, 12, 8],
+    ["Yoghurt, plain", "Drinks & extras", "1 cup", 150, 8, 11, 8],
+    ["Soft drink", "Drinks & extras", "1 can (330 ml)", 140, 0, 35, 0],
+    ["Vegetable or palm oil", "Drinks & extras", "1 tablespoon", 120, 0, 0, 14],
+    ["Sugar", "Drinks & extras", "1 teaspoon", 16, 0, 4, 0]
+  ].map((r, i) => ({ id: "f" + i, name: r[0], cat: r[1], serving: r[2], kcal: r[3], p: r[4], c: r[5], f: r[6] }));
+
+  const CATS = ["All", "Staples", "Soups & stews", "Protein", "Snacks", "Fruit & veg", "Drinks & extras"];
+
+  // Per 100 g, cooked. Used to turn macro targets into grams of food.
+  const STAPLES = {
+    rice:     { name: "Boiled white rice", p: 2.7, c: 28.2, f: 0.3 },
+    yam:      { name: "Boiled yam",        p: 1.5, c: 27.9, f: 0.2 },
+    eba:      { name: "Eba (garri)",       p: 0.4, c: 31.6, f: 0.2 },
+    plantain: { name: "Boiled plantain",   p: 0.8, c: 31,   f: 0.2 },
+    beans:    { name: "Boiled beans",      p: 7.7, c: 20.8, f: 0.5 }
+  };
+  const PROTEINS = {
+    chicken: { name: "Grilled chicken breast", p: 31, c: 0,   f: 3.6 },
+    fish:    { name: "Grilled fish",           p: 26, c: 0,   f: 2.7 },
+    egg:     { name: "Boiled eggs",            p: 13, c: 1.1, f: 11 }
+  };
+  const PACES = {
+    lose:     [{ id: "gentle", label: "Gentle (about 0.2 kg per week)", delta: -250 }, { id: "steady", label: "Steady (about 0.45 kg per week)", delta: -500 }],
+    gain:     [{ id: "lean", label: "Lean gain (about 0.2 kg per week)", delta: 250 }, { id: "steady", label: "Steady (about 0.45 kg per week)", delta: 500 }],
+    maintain: [{ id: "none", label: "Stay where I am", delta: 0 }]
+  };
+
+  // Per 100 g (cooked unless noted): n = name, k = kcal, p / c / f = grams
+  const COMP = {
+    oats:        { n: "Oats (dry weight)", k: 389, p: 16.9, c: 66, f: 6.9 },
+    bread:       { n: "Bread", k: 265, p: 9, c: 49, f: 3.2 },
+    yam:         { n: "Boiled yam", k: 118, p: 1.5, c: 27.9, f: 0.2 },
+    plantain:    { n: "Boiled plantain", k: 116, p: 0.8, c: 31, f: 0.2 },
+    sweetpotato: { n: "Boiled sweet potato", k: 86, p: 1.6, c: 20, f: 0.1 },
+    rice:        { n: "Boiled white rice", k: 130, p: 2.7, c: 28.2, f: 0.3 },
+    beans:       { n: "Boiled beans", k: 116, p: 7.7, c: 20.8, f: 0.5 },
+    eba:         { n: "Eba (garri)", k: 132, p: 0.4, c: 31.6, f: 0.2 },
+    amala:       { n: "Amala", k: 110, p: 1.6, c: 25, f: 0.2 },
+    fufu:        { n: "Fufu", k: 120, p: 0.4, c: 29, f: 0.1 },
+    spaghetti:   { n: "Boiled spaghetti", k: 158, p: 5.8, c: 31, f: 0.9 },
+    chicken:     { n: "Grilled chicken breast", k: 165, p: 31, c: 0, f: 3.6 },
+    fish:        { n: "Grilled fish", k: 128, p: 26, c: 0, f: 2.7 },
+    egg:         { n: "Boiled eggs", k: 155, p: 13, c: 1.1, f: 11 },
+    beef:        { n: "Lean beef, stewed", k: 217, p: 26, c: 0, f: 12 },
+    moimoi:      { n: "Moi moi", k: 140, p: 8, c: 13, f: 6 },
+    akara:       { n: "Akara", k: 250, p: 10, c: 20, f: 15 },
+    stew:        { n: "Tomato stew", k: 167, p: 10, c: 5, f: 12 },
+    salad:       { n: "Salad vegetables", k: 25, p: 1.5, c: 5, f: 0.2 },
+    efo:         { n: "Efo riro", k: 92, p: 5, c: 2.5, f: 7 },
+    okra:        { n: "Okra soup", k: 62, p: 3.3, c: 3.3, f: 4.2 },
+    egusi:       { n: "Egusi soup", k: 146, p: 6, c: 3, f: 12.5 },
+    banana:      { n: "Banana", k: 89, p: 1.1, c: 23, f: 0.3 },
+    apple:       { n: "Apple", k: 52, p: 0.3, c: 14, f: 0.2 },
+    orange:      { n: "Orange", k: 47, p: 0.9, c: 12, f: 0.1 },
+    pineapple:   { n: "Pineapple", k: 50, p: 0.5, c: 13, f: 0.1 },
+    watermelon:  { n: "Watermelon", k: 30, p: 0.6, c: 7.6, f: 0.2 },
+    groundnuts:  { n: "Roasted groundnuts", k: 571, p: 25, c: 18, f: 50 },
+    yoghurt:     { n: "Plain yoghurt", k: 61, p: 3.3, c: 4.5, f: 3.3 }
+  };
+  // st = scaled staple, pr = protein sized to the protein target, fx = fixed extras [food, grams]
+  const MEAL_TEMPLATES = {
+    b: [
+      { name: "Oats with boiled eggs and banana", st: "oats", pr: "egg", fx: [["banana", 100]] },
+      { name: "Bread with akara and orange", st: "bread", pr: "akara", fx: [["orange", 150]] },
+      { name: "Boiled yam with egg and tomato stew", st: "yam", pr: "egg", fx: [["stew", 60]] },
+      { name: "Sweet potato with grilled fish and salad", st: "sweetpotato", pr: "fish", fx: [["salad", 80]] },
+      { name: "Plantain with boiled eggs and watermelon", st: "plantain", pr: "egg", fx: [["watermelon", 150]] },
+      { name: "Bread with boiled eggs and banana", st: "bread", pr: "egg", fx: [["banana", 100]] },
+      { name: "Moi moi with plantain and orange", st: "plantain", pr: "moimoi", fx: [["orange", 100]] }
+    ],
+    l: [
+      { name: "Rice with grilled chicken and tomato stew", st: "rice", pr: "chicken", fx: [["stew", 80], ["salad", 100]] },
+      { name: "Beans with grilled fish and plantain", st: "beans", pr: "fish", fx: [["plantain", 80], ["salad", 80]] },
+      { name: "Eba with efo riro and beef", st: "eba", pr: "beef", fx: [["efo", 200]] },
+      { name: "Amala with okra soup and fish", st: "amala", pr: "fish", fx: [["okra", 200]] },
+      { name: "Boiled yam with egusi soup and chicken", st: "yam", pr: "chicken", fx: [["egusi", 120]] },
+      { name: "Spaghetti with chicken and vegetables", st: "spaghetti", pr: "chicken", fx: [["stew", 60], ["salad", 120]] },
+      { name: "Fufu with okra soup and beef", st: "fufu", pr: "beef", fx: [["okra", 200]] }
+    ],
+    d: [
+      { name: "Rice with grilled fish and salad", st: "rice", pr: "fish", fx: [["salad", 150]] },
+      { name: "Boiled yam with efo riro and fish", st: "yam", pr: "fish", fx: [["efo", 180]] },
+      { name: "Sweet potato with chicken and vegetables", st: "sweetpotato", pr: "chicken", fx: [["salad", 150]] },
+      { name: "Beans with boiled egg and plantain", st: "beans", pr: "egg", fx: [["plantain", 80]] },
+      { name: "Eba with okra soup and chicken", st: "eba", pr: "chicken", fx: [["okra", 200]] },
+      { name: "Rice with tomato stew and beef", st: "rice", pr: "beef", fx: [["stew", 100], ["salad", 100]] },
+      { name: "Spaghetti with grilled fish and vegetables", st: "spaghetti", pr: "fish", fx: [["salad", 150], ["stew", 50]] }
+    ],
+    s: [
+      { name: "Banana and groundnuts", st: "groundnuts", minSt: 0, maxSt: 30, pr: null, fx: [["banana", 100]] },
+      { name: "Apple and groundnuts", st: "groundnuts", minSt: 0, maxSt: 30, pr: null, fx: [["apple", 150]] },
+      { name: "Orange and groundnuts", st: "groundnuts", minSt: 0, maxSt: 30, pr: null, fx: [["orange", 150]] },
+      { name: "Pineapple and groundnuts", st: "groundnuts", minSt: 0, maxSt: 30, pr: null, fx: [["pineapple", 150]] },
+      { name: "Watermelon and groundnuts", st: "groundnuts", minSt: 0, maxSt: 30, pr: null, fx: [["watermelon", 200]] },
+      { name: "Plain yoghurt with banana", st: "groundnuts", minSt: 0, maxSt: 20, pr: null, fx: [["yoghurt", 150], ["banana", 80]] },
+      { name: "Yoghurt with pineapple", st: "groundnuts", minSt: 0, maxSt: 20, pr: null, fx: [["yoghurt", 150], ["pineapple", 80]] }
+    ]
+  };
+  const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  // [type, label, share of daily calories]
+  const SLOT_SETS = {
+    3: [["b", "Breakfast", 0.28], ["l", "Lunch", 0.38], ["d", "Dinner", 0.34]],
+    4: [["b", "Breakfast", 0.25], ["l", "Lunch", 0.33], ["s", "Snack", 0.12], ["d", "Dinner", 0.30]],
+    5: [["b", "Breakfast", 0.22], ["s", "Morning snack", 0.10], ["l", "Lunch", 0.30], ["d", "Dinner", 0.28], ["s", "Evening snack", 0.10]]
+  };
+
+  const STORE_KEY = "calorie-checker-data";
+
+  /* ============ HELPERS ============ */
+  const $ = (s) => document.querySelector(s);
+  const fmt = (n) => Math.round(n).toLocaleString("en-US");
+  const qtyFmt = (q) => (Number.isInteger(q) ? String(q) : q.toFixed(1));
+  const round5 = (n) => Math.round(n / 5) * 5;
+  const CIRC = 2 * Math.PI * 84;
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+  }
+  function dateKey(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function parseKey(k) { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); }
+  function addDays(k, n) { const d = parseKey(k); d.setDate(d.getDate() + n); return dateKey(d); }
+  const todayKey = () => dateKey(new Date());
+  function labelFor(k) {
+    const t = todayKey();
+    if (k === t) return "Today";
+    if (k === addDays(t, -1)) return "Yesterday";
+    return parseKey(k).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  }
+
+  /* ============ SAVING ============ */
+  const store = {
+    saved: null,
+    async load() {
+      try {
+        if (window.storage) {
+          const r = await window.storage.get(STORE_KEY, false);
+          if (r && r.value) return JSON.parse(r.value);
+        }
+      } catch (e) { /* not found or unavailable */ }
+      try {
+        const v = window.localStorage.getItem(STORE_KEY);
+        if (v) return JSON.parse(v);
+      } catch (e) { /* blocked */ }
+      return null;
+    },
+    async save(data) {
+      const text = JSON.stringify(data);
+      try {
+        if (window.storage) {
+          const r = await window.storage.set(STORE_KEY, text, false);
+          if (r) { this.saved = true; return true; }
+        }
+      } catch (e) { /* fall through */ }
+      try { window.localStorage.setItem(STORE_KEY, text); this.saved = true; return true; } catch (e) { /* fall through */ }
+      this.saved = false;
+      return false;
+    }
+  };
+
+  /* ============ STATE ============ */
+  const state = {
+    view: "track",
+    days: {},
+    date: todayKey(),
+    query: "",
+    cat: "All",
+    plan: null,
+    mealOffset: 0,
+    mealSwaps: {},
+    mealDay: (new Date().getDay() + 6) % 7,
+    premium: { start: null, paid: false },
+    profile: { sex: "male", age: 22, weight: 70, height: 172, activity: 1.375, goal: "lose", pace: "steady", meals: 3, staple: "rice", protein: "chicken" }
+  };
+
+  function getGoal() { const g = parseFloat($("#goal").value); return g > 0 ? g : 2000; }
+  const dayList = (k) => state.days[k || state.date] || [];
+  function totalsOf(list) {
+    const t = { kcal: 0, p: 0, c: 0, f: 0 };
+    list.forEach((e) => { t.kcal += e.kcal * e.qty; t.p += e.p * e.qty; t.c += e.c * e.qty; t.f += e.f * e.qty; });
+    return t;
+  }
+  async function persist() {
+    await store.save({ goal: getGoal(), days: state.days, plan: state.plan, profile: state.profile, mealOffset: state.mealOffset, mealSwaps: state.mealSwaps, premium: state.premium });
+    renderSaveStatus();
+  }
+  function renderSaveStatus() {
+    const el = $("#saveStatus");
+    if (store.saved === true) el.textContent = "Your history is saved automatically.";
+    else if (store.saved === false) el.textContent = "Saving isn't available here, so entries reset when you refresh. Open the file in your own browser or host it online to keep your history.";
+    else el.textContent = "Your history saves automatically when you add food.";
+  }
+
+  /* ============ PLAN CALCULATIONS ============ */
+  function paceDelta(goal, paceId) {
+    const list = PACES[goal];
+    return (list.find((p) => p.id === paceId) || list[list.length - 1]).delta;
+  }
+
+  function computePlan(pr) {
+    if (!(pr.age >= 18 && pr.age <= 90)) return { error: "This planner is for adults aged 18 to 90. Enter your age to see your plan." };
+    if (!(pr.weight >= 30 && pr.weight <= 250)) return { error: "Enter your weight in kg (30 to 250) to see your plan." };
+    if (!(pr.height >= 120 && pr.height <= 230)) return { error: "Enter your height in cm (120 to 230) to see your plan." };
+
+    const bmi = pr.weight / Math.pow(pr.height / 100, 2);
+    const bmr = 10 * pr.weight + 6.25 * pr.height - 5 * pr.age + (pr.sex === "male" ? 5 : -161);
+    const tdee = bmr * pr.activity;
+    const floor = pr.sex === "male" ? 1500 : 1200;
+    const notices = [];
+
+    let type = pr.goal;
+    if (type === "lose" && bmi < 18.5) {
+      type = "maintain";
+      notices.push("At your height and weight, losing weight isn't recommended, so this plan is set to maintain your weight. Speak to a doctor or dietitian if you're unsure.");
+    }
+
+    let kcal = Math.round((tdee + paceDelta(type, pr.pace)) / 10) * 10;
+    if (type === "lose" && kcal < floor) {
+      kcal = floor;
+      notices.push(`Your target was raised to ${fmt(floor)} kcal, the lowest level this planner will suggest. Going lower without medical guidance isn't safe.`);
+    }
+    const weekly = ((kcal - tdee) * 7) / 7700;
+
+    let p = pr.weight * { lose: 1.8, maintain: 1.4, gain: 1.6 }[type];
+    const f = (kcal * 0.25) / 9;
+    let c = (kcal - p * 4 - f * 9) / 4;
+    if (c < 50) { c = 50; p = (kcal - f * 9 - c * 4) / 4; }
+
+    const scen = {
+      lose: Math.max(floor, Math.round((tdee - 500) / 10) * 10),
+      maintain: Math.round(tdee / 10) * 10,
+      gain: Math.round((tdee + 500) / 10) * 10
+    };
+
+    return { type, bmi, tdee, kcal, weekly, p: Math.round(p), c: Math.round(c), f: Math.round(f), scen, notices };
+  }
+
+  /* ============ RENDER: TRACK ============ */
+  function renderChips() {
+    $("#chips").innerHTML = CATS.map((c) => `<button type="button" class="chip" data-cat="${c}" aria-pressed="${state.cat === c}">${c}</button>`).join("");
+  }
+
+  function renderFoods() {
+    const q = state.query.trim().toLowerCase();
+    const list = FOODS.filter((f) => (state.cat === "All" || f.cat === state.cat) && f.name.toLowerCase().includes(q));
+    const inPlate = new Set(dayList().map((e) => e.id));
+    if (!list.length) {
+      $("#foodList").innerHTML = `<li class="empty">No match for "${escapeHtml(state.query)}". Add it below with your own calorie number.</li>`;
+      return;
+    }
+    $("#foodList").innerHTML = list.map((f) => `<li class="food">
+        <div><span class="name">${escapeHtml(f.name)}</span><span class="serv">${escapeHtml(f.serving)}</span></div>
+        <span class="kcal">${fmt(f.kcal)} kcal</span>
+        <button type="button" class="btn${inPlate.has(f.id) ? " quiet" : ""}" data-add="${f.id}" aria-label="Add ${escapeHtml(f.name)}">${inPlate.has(f.id) ? "Add more" : "Add"}</button>
+      </li>`).join("");
+  }
+
+  function renderPlate() {
+    const list = dayList();
+    $("#plateTitle").textContent = state.date === todayKey() ? "Your plate today" : "Your plate, " + labelFor(state.date);
+    $("#plateList").innerHTML = list.map((e) => `<li class="item">
+        <div><div class="name">${escapeHtml(e.name)}</div><div class="meta">${escapeHtml(e.serving)}</div></div>
+        <div class="total">${fmt(e.kcal * e.qty)} kcal</div>
+        <div class="stepper" role="group" aria-label="Servings of ${escapeHtml(e.name)}">
+          <button type="button" data-dec="${e.id}" aria-label="Fewer servings">&minus;</button>
+          <span class="q">${qtyFmt(e.qty)}</span>
+          <button type="button" data-inc="${e.id}" aria-label="More servings">+</button>
+        </div>
+        <div style="text-align:right"><button type="button" class="btn quiet" data-remove="${e.id}">Remove</button></div>
+      </li>`).join("");
+    $("#plateEmpty").hidden = list.length > 0;
+    $("#clear").hidden = list.length === 0;
+  }
+
+  function renderTotals() {
+    const t = totalsOf(dayList());
+    const goal = getGoal();
+    $("#dayLabel").textContent = labelFor(state.date);
+    $("#nextDay").disabled = state.date >= todayKey();
+    $("#totalNum").textContent = fmt(t.kcal);
+    $("#bar").style.strokeDashoffset = CIRC * (1 - Math.min(t.kcal / goal, 1));
+    $("#ring").classList.toggle("over", t.kcal > goal);
+
+    const diff = goal - t.kcal;
+    const status = $("#status");
+    status.classList.toggle("over", diff < 0);
+    status.textContent = diff >= 0 ? `${fmt(diff)} kcal left` : `${fmt(-diff)} kcal over your goal`;
+
+    const rows = [["Protein", "p", "var(--protein)"], ["Carbs", "c", "var(--carbs)"], ["Fat", "f", "var(--fat)"]];
+    $("#macroRows").innerHTML = rows.map(([label, key, color]) => {
+      const target = state.plan ? state.plan[key] : 0;
+      const pct = target ? Math.min(t[key] / target, 1) * 100 : 0;
+      const txt = target ? `${Math.round(t[key])} g of ${target} g` : `${Math.round(t[key])} g`;
+      return `<div class="prog"><div class="top"><span>${label}</span><b>${txt}</b></div>
+        <div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+    }).join("");
+    $("#macroHint").innerHTML = state.plan ? "" : `Want daily gram targets for protein, carbs, and fat? <button type="button" class="link" data-goto="plan">Build your plan</button>`;
+  }
+
+  /* ============ RENDER: PLAN ============ */
+  function fillPlanForm() {
+    const pr = state.profile;
+    $("#pSex").value = pr.sex;
+    $("#pAge").value = pr.age;
+    $("#pWeight").value = pr.weight;
+    $("#pHeight").value = pr.height;
+    $("#pActivity").value = String(pr.activity);
+    $("#pGoal").value = pr.goal;
+    $("#pMeals").value = String(pr.meals);
+    $("#pStaple").innerHTML = Object.entries(STAPLES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("");
+    $("#pProtein").innerHTML = Object.entries(PROTEINS).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("");
+    $("#pStaple").value = pr.staple;
+    $("#pProtein").value = pr.protein;
+    fillPace();
+  }
+
+  function fillPace() {
+    const pr = state.profile;
+    const list = PACES[pr.goal];
+    $("#pPace").innerHTML = list.map((p) => `<option value="${p.id}">${p.label}</option>`).join("");
+    if (!list.some((p) => p.id === pr.pace)) pr.pace = list[list.length - 1].id;
+    $("#pPace").value = pr.pace;
+    $("#paceBox").hidden = pr.goal === "maintain";
+  }
+
+  function readProfile() {
+    const pr = state.profile;
+    pr.sex = $("#pSex").value;
+    pr.age = parseFloat($("#pAge").value);
+    pr.weight = parseFloat($("#pWeight").value);
+    pr.height = parseFloat($("#pHeight").value);
+    pr.activity = parseFloat($("#pActivity").value);
+    pr.goal = $("#pGoal").value;
+    pr.pace = $("#pPace").value;
+    pr.meals = parseInt($("#pMeals").value, 10);
+    pr.staple = $("#pStaple").value;
+    pr.protein = $("#pProtein").value;
+  }
+
+  function renderPlan() {
+    const box = $("#planResults");
+    const pr = state.profile;
+    const r = computePlan(pr);
+    if (r.error) { box.innerHTML = `<p class="empty">${escapeHtml(r.error)}</p>`; return; }
+
+    const goalText = r.type === "lose" ? `to lose about ${Math.abs(r.weekly).toFixed(2)} kg per week`
+                   : r.type === "gain" ? `to gain about ${Math.abs(r.weekly).toFixed(2)} kg per week`
+                   : "to stay at your current weight";
+    const applied = state.plan && state.plan.kcal === r.kcal && state.plan.p === r.p && state.plan.c === r.c && state.plan.f === r.f;
+
+    // Donut
+    const calP = r.p * 4, calC = r.c * 4, calF = r.f * 9, sum = calP + calC + calF;
+    const a = (calP / sum) * 100, b = (calC / sum) * 100;
+    const donutBg = `conic-gradient(var(--protein) 0 ${a}%, var(--carbs) ${a}% ${a + b}%, var(--fat) ${a + b}% 100%)`;
+
+    // Scenarios
+    const maxS = Math.max(r.scen.lose, r.scen.maintain, r.scen.gain) * 1.05;
+    const scenRows = [
+      ["lose", "Lose weight", r.scen.lose, "about 0.45 kg lost per week"],
+      ["maintain", "Maintain", r.scen.maintain, "stay at your weight"],
+      ["gain", "Gain weight", r.scen.gain, "about 0.45 kg gained per week"]
+    ].map(([k, nm, v, sm]) => `<div class="row ${r.type === k ? "on" : ""}">
+        <span class="nm">${nm}</span>
+        <div class="track"><div class="fill" style="width:${(v / maxS) * 100}%"></div></div>
+        <b>${fmt(v)}</b>
+        <span class="sm">${sm}</span>
+      </div>`).join("");
+
+    // Grams of food per meal
+    const meals = pr.meals || 3;
+    const st = STAPLES[pr.staple] || STAPLES.rice;
+    const pt = PROTEINS[pr.protein] || PROTEINS.chicken;
+    const stapleG = round5((r.c / meals) / (st.c / 100));
+    const proteinNeeded = Math.max(0, r.p / meals - (stapleG * st.p) / 100);
+    const proteinG = round5(proteinNeeded / (pt.p / 100));
+    const fatLeftDay = r.f - meals * ((stapleG * st.f) / 100 + (proteinG * pt.f) / 100);
+    const oilG = Math.max(0, Math.round(fatLeftDay));
+    const oilTbsp = Math.round(oilG / 14);
+    const vegG = 150;
+    const totalG = stapleG + proteinG + vegG;
+    const eggNote = pr.protein === "egg" ? ` (about ${Math.max(1, Math.round(proteinG / 50))} eggs)` : "";
+
+    // Weight projection
+    const w0 = pr.weight;
+    const pts = [];
+    for (let i = 0; i <= 12; i++) pts.push(w0 + r.weekly * i);
+    let minW = Math.min(...pts) - 1, maxW = Math.max(...pts) + 1;
+    const W = 320, H = 150, pl = 40, pr2 = 14, pt2 = 14, pb = 26;
+    const X = (i) => pl + (i * (W - pl - pr2)) / 12;
+    const Y = (w) => pt2 + ((maxW - w) / (maxW - minW)) * (H - pt2 - pb);
+    const line = pts.map((w, i) => `${X(i).toFixed(1)},${Y(w).toFixed(1)}`).join(" ");
+    const endW = pts[12];
+    const svg = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Projected weight over 12 weeks, from ${w0.toFixed(1)} kg to ${endW.toFixed(1)} kg">
+        <line class="axis" x1="${pl}" y1="${H - pb}" x2="${W - pr2}" y2="${H - pb}"></line>
+        <line class="axis" x1="${pl}" y1="${pt2}" x2="${pl}" y2="${H - pb}"></line>
+        <text x="${pl - 6}" y="${pt2 + 4}" text-anchor="end">${maxW.toFixed(1)}</text>
+        <text x="${pl - 6}" y="${H - pb + 4}" text-anchor="end">${minW.toFixed(1)}</text>
+        <polyline class="line" points="${line}"></polyline>
+        <circle class="dot" cx="${X(0)}" cy="${Y(w0)}" r="4"></circle>
+        <circle class="dot" cx="${X(12)}" cy="${Y(endW)}" r="4"></circle>
+        <text class="val" x="${X(0) + 6}" y="${Y(w0) - 8}">${w0.toFixed(1)} kg</text>
+        <text class="val" x="${X(12)}" y="${Y(endW) - 8}" text-anchor="end">${endW.toFixed(1)} kg</text>
+        <text x="${X(0)}" y="${H - 8}" text-anchor="middle">Now</text>
+        <text x="${X(4)}" y="${H - 8}" text-anchor="middle">Wk 4</text>
+        <text x="${X(8)}" y="${H - 8}" text-anchor="middle">Wk 8</text>
+        <text x="${X(12)}" y="${H - 8}" text-anchor="middle">Wk 12</text>
+      </svg>`;
+
+    // BMI
+    const bmiPos = Math.min(Math.max((r.bmi - 15) / 25, 0), 1) * 100;
+    const bmiText = r.bmi < 18.5 ? "below the healthy range" : r.bmi < 25 ? "in the healthy range" : r.bmi < 30 ? "above the healthy range" : "well above the healthy range";
+
+    box.innerHTML = `
+      <div class="hero-plan">
+        <div>
+          <div class="big">${fmt(r.kcal)} kcal</div>
+          <div class="sub">per day ${goalText}</div>
+        </div>
+        <button type="button" class="btn" id="applyPlan">${applied ? "Applied to your tracker" : "Use as my daily goal"}</button>
+      </div>
+      ${r.notices.map((n) => `<p class="notice">${escapeHtml(n)}</p>`).join("")}
+      <div class="cards">
+        <div class="panel">
+          <h3>Daily grams of protein, carbs, and fat</h3>
+          <div class="gram-cards">
+            <div class="gram" style="border-color:var(--protein)"><div class="n">${r.p} g</div><div class="l">Protein</div></div>
+            <div class="gram" style="border-color:var(--carbs)"><div class="n">${r.c} g</div><div class="l">Carbs</div></div>
+            <div class="gram" style="border-color:var(--fat)"><div class="n">${r.f} g</div><div class="l">Fat</div></div>
+          </div>
+          <div class="donut-row" style="margin-top:16px">
+            <div class="donut" style="background:${donutBg}" role="img" aria-label="Calories from protein ${Math.round(a)} percent, carbs ${Math.round(b)} percent, fat ${Math.round(100 - a - b)} percent">
+              <div class="center"><b>${fmt(r.kcal)}</b><span>kcal</span></div>
+            </div>
+            <div class="dl">
+              <div><i style="background:var(--protein)"></i>Protein<span class="g">${Math.round(a)}%</span></div>
+              <div><i style="background:var(--carbs)"></i>Carbs<span class="g">${Math.round(b)}%</span></div>
+              <div><i style="background:var(--fat)"></i>Fat<span class="g">${Math.round(100 - a - b)}%</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Daily calories by goal</h3>
+          <div class="scen">${scenRows}</div>
+          <p class="chart-note">Your maintenance level is about ${fmt(r.scen.maintain)} kcal a day with your activity level.</p>
+        </div>
+
+        <div class="panel wide">
+          <h3>What to eat per meal, in grams (${meals} meals a day)</h3>
+          <div class="stack" aria-hidden="true">
+            <span style="width:${(stapleG / totalG) * 100}%;background:var(--carbs)"></span>
+            <span style="width:${(proteinG / totalG) * 100}%;background:var(--protein)"></span>
+            <span style="width:${(vegG / totalG) * 100}%;background:var(--veg)"></span>
+          </div>
+          <div class="meal-grid">
+            <div class="meal"><div class="n">${stapleG} g</div><div class="l"><i style="background:var(--carbs)"></i>${escapeHtml(st.name)}</div></div>
+            <div class="meal"><div class="n">${proteinG} g</div><div class="l"><i style="background:var(--protein)"></i>${escapeHtml(pt.name)}${eggNote}</div></div>
+            <div class="meal"><div class="n">${vegG} g+</div><div class="l"><i style="background:var(--veg)"></i>Vegetables or salad</div></div>
+          </div>
+          <p class="chart-note">${oilG > 0 ? `Cooking oil and other fats: about ${oilG} g a day in total (around ${oilTbsp} tablespoon${oilTbsp === 1 ? "" : "s"}).` : "Your meals already cover your fat target, so keep added oil light."} Weights are cooked, ready-to-eat amounts. Swap the staple or protein above to see new amounts.</p>
+        </div>
+
+        <div class="panel">
+          <h3>Where you could be in 12 weeks</h3>
+          ${svg}
+          <p class="chart-note">A guide only. Real progress isn't a straight line.</p>
+        </div>
+
+        <div class="panel">
+          <h3>Your BMI: ${r.bmi.toFixed(1)}</h3>
+          <div class="bmi-wrap">
+            <div class="bmi-bar">
+              <span style="width:14%;background:var(--protein)"></span>
+              <span style="width:26%;background:var(--accent)"></span>
+              <span style="width:20%;background:var(--carbs)"></span>
+              <span style="width:40%;background:var(--over)"></span>
+            </div>
+            <div class="bmi-mark" style="left:${bmiPos}%"></div>
+          </div>
+          <div class="bmi-labels"><span>15</span><span>18.5</span><span>25</span><span>30</span><span>40</span></div>
+          <p class="chart-note">That is ${bmiText}. BMI is only a rough guide and doesn't account for muscle or body shape.</p>
+        </div>
+      </div>`;
+  }
+
+  /* ============ RENDER: PROGRESS ============ */
+  function renderHistory() {
+    const goal = getGoal();
+    const today = todayKey();
+    const keys = [];
+    for (let i = 6; i >= 0; i--) keys.push(addDays(today, -i));
+    const data = keys.map((k) => ({ k, t: totalsOf(dayList(k)), has: dayList(k).length > 0 }));
+    const logged = data.filter((d) => d.has && d.t.kcal > 0);
+    const avg = logged.length ? logged.reduce((s, d) => s + d.t.kcal, 0) / logged.length : 0;
+    const onGoal = logged.filter((d) => d.t.kcal <= goal).length;
+
+    $("#sAvg").textContent = fmt(avg);
+    $("#sLogged").textContent = logged.length + "/7";
+    $("#sOnGoal").textContent = onGoal;
+
+    if (logged.length) {
+      const avgOf = (key) => logged.reduce((s, d) => s + d.t[key], 0) / logged.length;
+      $("#macroAvg").textContent = `Average per logged day: protein ${Math.round(avgOf("p"))} g, carbs ${Math.round(avgOf("c"))} g, fat ${Math.round(avgOf("f"))} g.`;
+    } else {
+      $("#macroAvg").textContent = "Log a few meals and your weekly averages will show up here.";
+    }
+
+    const BAR_AREA = 144, LABEL = 26;
+    const max = Math.max(goal, ...data.map((d) => d.t.kcal)) * 1.08;
+    const cols = data.map((d) => {
+      const h = d.t.kcal > 0 ? Math.max(3, (d.t.kcal / max) * BAR_AREA) : 3;
+      const cls = ["col"];
+      if (d.t.kcal > goal) cls.push("over");
+      if (!d.has) cls.push("empty-day");
+      const date = parseKey(d.k);
+      const short = date.toLocaleDateString("en-GB", { weekday: "short" });
+      const full = date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+      return `<button type="button" class="${cls.join(" ")}" data-day="${d.k}" aria-pressed="${d.k === state.date}" aria-label="${full}: ${fmt(d.t.kcal)} kcal. View this day">
+          <div class="bar-fill" style="height:${h}px"></div><div class="day">${short}</div></button>`;
+    }).join("");
+    $("#chart").innerHTML = cols + `<div class="goal-line" style="bottom:${LABEL + (goal / max) * BAR_AREA}px"></div>`;
+  }
+
+  /* ============ RENDER: MEAL PLAN ============ */
+  function buildMeal(t, K, pM) {
+    const parts = [];
+    let Kf = 0, pf = 0;
+    t.fx.forEach(([key, g]) => {
+      const c = COMP[key];
+      parts.push({ key, name: c.n, g });
+      Kf += (g * c.k) / 100;
+      pf += (g * c.p) / 100;
+    });
+    let pg = 0;
+    if (t.pr) {
+      const c = COMP[t.pr];
+      pg = Math.max(0, (pM - pf) * 0.9) / (c.p / 100);
+      pg = Math.min(pg, (0.5 * K) / (c.k / 100));
+      pg = Math.max(50, round5(pg));
+    }
+    const pk = t.pr ? (pg * COMP[t.pr].k) / 100 : 0;
+    const st = COMP[t.st];
+    const min = t.minSt != null ? t.minSt : 40;
+    const max = t.maxSt != null ? t.maxSt : 700;
+    const sg = Math.max(min, Math.min(max, round5((K - Kf - pk) / (st.k / 100))));
+    const all = [{ key: t.st, name: st.n, g: sg }];
+    if (t.pr) all.push({ key: t.pr, name: COMP[t.pr].n, g: pg });
+    all.push(...parts);
+    const tot = { kcal: 0, p: 0, c: 0, f: 0 };
+    all.forEach((x) => {
+      const c = COMP[x.key];
+      tot.kcal += (x.g * c.k) / 100;
+      tot.p += (x.g * c.p) / 100;
+      tot.c += (x.g * c.c) / 100;
+      tot.f += (x.g * c.f) / 100;
+    });
+    return { name: t.name, parts: all.filter((x) => x.g > 0), tot };
+  }
+
+  function buildWeek(r) {
+    const slots = SLOT_SETS[state.profile.meals] || SLOT_SETS[3];
+    const mainSum = slots.filter((s) => s[0] !== "s").reduce((a, s) => a + s[2], 0);
+    return DAY_NAMES.map((dn, d) => {
+      const meals = slots.map((s, j) => {
+        const list = MEAL_TEMPLATES[s[0]];
+        const raw = d + j * 2 + state.mealOffset + (state.mealSwaps[d + "-" + j] || 0);
+        const idx = ((raw % list.length) + list.length) % list.length;
+        const pM = s[0] === "s" ? 0 : (r.p * s[2]) / mainSum;
+        const m = buildMeal(list[idx], r.kcal * s[2], pM);
+        m.label = s[1];
+        m.key = d + "-" + j;
+        return m;
+      });
+      const tot = meals.reduce((a, m) => ({ kcal: a.kcal + m.tot.kcal, p: a.p + m.tot.p, c: a.c + m.tot.c, f: a.f + m.tot.f }), { kcal: 0, p: 0, c: 0, f: 0 });
+      return { name: dn, meals, tot };
+    });
+  }
+
+  function partText(x) {
+    const extra = x.key === "egg" ? ` (about ${Math.max(1, Math.round(x.g / 50))})` : "";
+    return `<li><span>${escapeHtml(x.name)}${extra}</span><b>${x.g} g</b></li>`;
+  }
+
+  function renderMeals() {
+    const box = $("#mealPlan");
+    $("#mealActions").hidden = !hasPremium();
+    if (!hasPremium()) {
+      const t = trialInfo();
+      const start = t.status === "none" ? `<button type="button" class="btn" data-trial>Start ${CONFIG.trialDays}-day free trial</button>` : "";
+      const note = t.status === "ended" ? "Your free trial has ended." : `Try it free for ${CONFIG.trialDays} days, no card needed.`;
+      box.innerHTML = `<div class="lock"><h3>The weekly meal plan is a Premium feature</h3>
+        <p>Get 7 days of meals in grams, a grocery list, and a print-ready plan. Premium is ${money(CONFIG.monthlyPrice)} per month. ${note}</p>
+        <div class="mactions">${start}<a class="btn quiet" href="#premium">See pricing</a></div></div>`;
+      return;
+    }
+    const r = computePlan(state.profile);
+    if (r.error) {
+      box.innerHTML = `<p class="empty">${escapeHtml(r.error)} Open <button type="button" class="link" data-goto="plan">My plan</button> to add your details.</p>`;
+      return;
+    }
+    const week = buildWeek(r);
+    const d = Math.min(Math.max(state.mealDay, 0), 6);
+    const day = week[d];
+    const goalWord = r.type === "lose" ? "losing weight" : r.type === "gain" ? "gaining weight" : "maintaining weight";
+    const avgK = week.reduce((a, w) => a + w.tot.kcal, 0) / 7;
+    const avgP = week.reduce((a, w) => a + w.tot.p, 0) / 7;
+
+    const BAR = 144, LABEL = 26;
+    const max = Math.max(r.kcal, ...week.map((w) => w.tot.kcal)) * 1.08;
+    const cols = week.map((w, i) => `<button type="button" class="col" data-mday="${i}" aria-pressed="${i === d}" aria-label="${w.name}: ${fmt(w.tot.kcal)} kcal">
+        <div class="bar-fill" style="height:${Math.max(3, (w.tot.kcal / max) * BAR)}px"></div><div class="day">${w.name.slice(0, 3)}</div></button>`).join("");
+    const chart = `<div class="chart">${cols}<div class="goal-line" style="bottom:${LABEL + (r.kcal / max) * BAR}px"></div></div>`;
+
+    const cards = day.meals.map((m) => {
+      const kp = m.tot.p * 4, kc = m.tot.c * 4, kf = m.tot.f * 9, ks = kp + kc + kf || 1;
+      return `<div class="mcard">
+        <div class="mhead"><div><div class="mlabel">${m.label}</div><div class="mname">${escapeHtml(m.name)}</div></div><div class="mkcal">${fmt(m.tot.kcal)} kcal</div></div>
+        <div class="stack" aria-hidden="true">
+          <span style="width:${(kp / ks) * 100}%;background:var(--protein)"></span>
+          <span style="width:${(kc / ks) * 100}%;background:var(--carbs)"></span>
+          <span style="width:${(kf / ks) * 100}%;background:var(--fat)"></span>
+        </div>
+        <ul class="mparts">${m.parts.map(partText).join("")}</ul>
+        <div class="mmacros">Protein ${Math.round(m.tot.p)} g, carbs ${Math.round(m.tot.c)} g, fat ${Math.round(m.tot.f)} g</div>
+        <div class="mactions no-print">
+          <button type="button" class="btn quiet" data-swap="${m.key}">Swap meal</button>
+          <button type="button" class="btn" data-logmeal="${m.key}">Add to today</button>
+        </div>
+      </div>`;
+    }).join("");
+
+    const shop = {};
+    week.forEach((w) => w.meals.forEach((m) => m.parts.forEach((x) => { shop[x.name] = (shop[x.name] || 0) + x.g; })));
+    const shopList = Object.entries(shop).sort((a, b) => b[1] - a[1])
+      .map(([n, g]) => `<li><span>${escapeHtml(n)}</span><b>${g >= 1000 ? (g / 1000).toFixed(1) + " kg" : g + " g"}</b></li>`).join("");
+
+    box.innerHTML = `
+      <p class="chart-note" style="margin-top:0">Built for ${fmt(r.kcal)} kcal a day for ${goalWord}. This week averages about ${fmt(avgK)} kcal and ${Math.round(avgP)} g of protein a day. Weights are cooked amounts, except oats (dry).</p>
+      ${chart}
+      <p class="chart-note">The dashed line is your daily target. Tap a day to see its meals.</p>
+      <h3 class="mt">${day.name}: ${fmt(day.tot.kcal)} kcal</h3>
+      <div class="mgrid">${cards}</div>
+      <h3 class="mt">Grocery list for the week</h3>
+      <ul class="shop">${shopList}</ul>
+      <p class="chart-note">Dry rice, beans, and garri weigh much less before cooking, so buy less than the cooked weights shown.</p>`;
+  }
+
+  /* ============ TRIAL AND PREMIUM ACCESS ============ */
+  const money = (n) => CONFIG.currency + Math.round(n).toLocaleString("en-US");
+  function trialInfo() {
+    const st = state.premium.start;
+    if (!st) return { status: "none", left: CONFIG.trialDays };
+    const left = Math.ceil((st + CONFIG.trialDays * 86400000 - Date.now()) / 86400000);
+    return left > 0 ? { status: "active", left } : { status: "ended", left: 0 };
+  }
+  function hasPremium() {
+    return !CONFIG.lockMealPlan || state.premium.paid || trialInfo().status === "active";
+  }
+  function renderPremiumCta() {
+    const t = trialInfo();
+    const line = $("#trialLine");
+    const box = $("#premiumCta");
+    if (state.premium.paid) {
+      line.textContent = "Your Premium is active. Thank you!";
+      box.innerHTML = "";
+      return;
+    }
+    let html = "";
+    if (t.status === "none") {
+      line.textContent = `Try everything free for ${CONFIG.trialDays} days. No card needed.`;
+      html += `<button type="button" class="btn" data-trial>Start ${CONFIG.trialDays}-day free trial</button>`;
+    } else if (t.status === "active") {
+      line.textContent = `Your free trial has ${t.left} day${t.left === 1 ? "" : "s"} left.`;
+    } else {
+      line.textContent = "Your free trial has ended. Subscribe to keep the meal plan.";
+    }
+    html += `<button type="button" class="btn${t.status === "none" ? " quiet" : ""}" data-subscribe="monthly">Subscribe ${money(CONFIG.monthlyPrice)} per month</button>`;
+    html += `<button type="button" class="btn quiet" data-subscribe="yearly">Yearly ${money(CONFIG.yearlyPrice)}</button>`;
+    box.innerHTML = html;
+  }
+  function renderBanner() {
+    const el = $("#trialBanner");
+    const t = trialInfo();
+    if (!CONFIG.lockMealPlan || state.premium.paid) { el.hidden = true; return; }
+    el.hidden = false;
+    if (t.status === "none") el.innerHTML = `Try Premium free for ${CONFIG.trialDays} days. <a href="#premium">Start your free trial</a>`;
+    else if (t.status === "active") el.innerHTML = `Premium trial: ${t.left} day${t.left === 1 ? "" : "s"} left. <a href="#premium">See pricing</a>`;
+    else el.innerHTML = `Your free trial has ended. <a href="#premium">Subscribe to keep the meal plan</a>`;
+  }
+  function refreshAccess() {
+    renderPremiumCta();
+    renderBanner();
+    if (state.view === "meals") renderMeals();
+  }
+
+  function renderContact() {
+    const links = [];
+    if (CONFIG.contactEmail) links.push(`<a class="btn" href="mailto:${escapeHtml(CONFIG.contactEmail)}">Email us</a>`);
+    if (CONFIG.contactPhone) {
+      const digits = CONFIG.contactPhone.replace(/\D/g, "");
+      const intl = digits.startsWith("0") ? "234" + digits.slice(1) : digits;
+      links.push(`<a class="btn quiet" href="tel:+${intl}">Call ${escapeHtml(CONFIG.contactPhone)}</a>`);
+      links.push(`<a class="btn quiet" href="https://wa.me/${intl}" target="_blank" rel="noopener">WhatsApp</a>`);
+    }
+    const details = [CONFIG.contactEmail, CONFIG.contactPhone].filter(Boolean).map(escapeHtml).join(" &nbsp;|&nbsp; ");
+    $("#contactLinks").innerHTML = links.join("") + (details ? `<p class="chart-note" style="flex-basis:100%;margin:6px 0 0">${details}</p>` : "");
+    $("#contact").hidden = links.length === 0;
+  }
+
+  /* ============ RENDER: PREMIUM ============ */
+  function renderPremium() {
+    $("#priceMonthly").textContent = money(CONFIG.monthlyPrice);
+    const saving = CONFIG.monthlyPrice * 12 - CONFIG.yearlyPrice;
+    $("#priceYearly").textContent = `or ${money(CONFIG.yearlyPrice)} per year` + (saving > 0 ? ` (save ${money(saving)})` : "");
+    const free = ["Calorie and macro tracker", "Weight-goal planner with gram targets", "Nigerian and everyday foods", "7-day progress chart"];
+    const pro = ["Everything in Free", "Weekly meal plans in grams, with meal swaps", "Grocery list for the week", "Print or save your plan as a PDF", "Coming soon: sync across devices", "Coming soon: report to share with a dietitian", "Coming soon: larger food database"];
+    $("#freeList").innerHTML = free.map((x) => `<li>${x}</li>`).join("");
+    $("#proList").innerHTML = pro.map((x) => `<li>${x}</li>`).join("");
+    renderPremiumCta();
+    renderBanner();
+    const slot = $("#sponsorSlot");
+    if (CONFIG.sponsors.length) {
+      const s = CONFIG.sponsors[0];
+      slot.innerHTML = `<small>Sponsored</small><b>${escapeHtml(s.name)}</b>: ${escapeHtml(s.text)}
+        <a href="${escapeHtml(s.url)}" target="_blank" rel="sponsored noopener">Learn more</a>`;
+    } else {
+      const contact = CONFIG.contactEmail ? ` <a href="mailto:${escapeHtml(CONFIG.contactEmail)}">Get in touch</a>` : "";
+      slot.innerHTML = `<small>Partner spot</small>Reach people who are actively planning what they eat. Gyms, meal-prep services, and food brands can feature here.${contact}`;
+    }
+  }
+
+  /* ============ VIEW + RENDER ALL ============ */
+  function setView(v) {
+    state.view = v;
+    ["track", "plan", "meals", "progress"].forEach((name) => {
+      $("#view-" + name).hidden = name !== v;
+    });
+    document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === v)));
+    if (v === "plan") renderPlan();
+    if (v === "meals") renderMeals();
+    if (v === "progress") renderHistory();
+  }
+
+  function renderAll() {
+    renderFoods();
+    renderPlate();
+    renderTotals();
+    renderHistory();
+    renderSaveStatus();
+  }
+  function changed() { renderAll(); persist(); }
+
+  /* ============ ACTIONS ============ */
+  function addFood(food) {
+    if (!state.days[state.date]) state.days[state.date] = [];
+    const list = state.days[state.date];
+    const existing = list.find((e) => e.id === food.id);
+    if (existing) existing.qty += 1;
+    else list.push({ id: food.id, name: food.name, serving: food.serving, kcal: food.kcal, p: food.p, c: food.c, f: food.f, qty: 1 });
+    changed();
+  }
+  function goToDay(k) {
+    if (k > todayKey()) return;
+    state.date = k;
+    renderAll();
+  }
+
+  /* ============ EVENTS ============ */
+  document.querySelector(".tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-view]");
+    if (b) setView(b.dataset.view);
+  });
+  document.addEventListener("click", (e) => {
+    const g = e.target.closest("[data-goto]");
+    if (g) setView(g.dataset.goto);
+  });
+
+  $("#search").addEventListener("input", (e) => { state.query = e.target.value; renderFoods(); });
+  $("#goal").addEventListener("input", () => { renderTotals(); renderHistory(); });
+  $("#goal").addEventListener("change", persist);
+  $("#prevDay").addEventListener("click", () => goToDay(addDays(state.date, -1)));
+  $("#nextDay").addEventListener("click", () => goToDay(addDays(state.date, 1)));
+
+  $("#chips").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-cat]");
+    if (!b) return;
+    state.cat = b.dataset.cat;
+    renderChips();
+    renderFoods();
+  });
+  $("#foodList").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-add]");
+    if (b) addFood(FOODS.find((f) => f.id === b.dataset.add));
+  });
+  $("#plateList").addEventListener("click", (e) => {
+    const inc = e.target.closest("[data-inc]");
+    const dec = e.target.closest("[data-dec]");
+    const rem = e.target.closest("[data-remove]");
+    const btn = inc || dec || rem;
+    if (!btn) return;
+    const key = btn.dataset.inc || btn.dataset.dec || btn.dataset.remove;
+    const list = dayList();
+    const entry = list.find((x) => x.id === key);
+    if (!entry) return;
+    if (inc) entry.qty += 0.5;
+    if (dec) entry.qty -= 0.5;
+    if (rem || entry.qty <= 0) {
+      state.days[state.date] = list.filter((x) => x !== entry);
+      if (!state.days[state.date].length) delete state.days[state.date];
+    }
+    changed();
+  });
+  $("#clear").addEventListener("click", () => { delete state.days[state.date]; changed(); });
+  $("#chart").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-day]");
+    if (!b) return;
+    goToDay(b.dataset.day);
+    setView("track");
+  });
+
+  $("#customForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = $("#cName").value.trim();
+    const kcal = parseFloat($("#cKcal").value);
+    if (!name || isNaN(kcal)) return;
+    addFood({
+      id: "c" + Date.now(), name, serving: "1 serving (your entry)", kcal,
+      p: parseFloat($("#cP").value) || 0, c: parseFloat($("#cC").value) || 0, f: parseFloat($("#cF").value) || 0
+    });
+    e.target.reset();
+  });
+
+  // Plan form
+  $("#planForm").addEventListener("input", () => { readProfile(); renderPlan(); });
+  $("#planForm").addEventListener("change", (e) => {
+    if (e.target.id === "pGoal") { readProfile(); fillPace(); readProfile(); renderPlan(); }
+    persist();
+  });
+  $("#planResults").addEventListener("click", (e) => {
+    if (!e.target.closest("#applyPlan")) return;
+    const r = computePlan(state.profile);
+    if (r.error) return;
+    state.plan = { kcal: r.kcal, p: r.p, c: r.c, f: r.f };
+    $("#goal").value = r.kcal;
+    changed();
+    renderPlan();
+  });
+
+  // Meal plan
+  $("#mealPlan").addEventListener("click", (e) => {
+    const dayBtn = e.target.closest("[data-mday]");
+    if (dayBtn) { state.mealDay = parseInt(dayBtn.dataset.mday, 10); renderMeals(); return; }
+    const sw = e.target.closest("[data-swap]");
+    if (sw) {
+      const k = sw.dataset.swap;
+      state.mealSwaps[k] = (state.mealSwaps[k] || 0) + 1;
+      renderMeals();
+      persist();
+      return;
+    }
+    const lg = e.target.closest("[data-logmeal]");
+    if (lg) {
+      const r = computePlan(state.profile);
+      if (r.error) return;
+      const [d, j] = lg.dataset.logmeal.split("-").map(Number);
+      const m = buildWeek(r)[d].meals[j];
+      addFood({
+        id: "mp" + Date.now(), name: m.name, serving: "planned meal",
+        kcal: Math.round(m.tot.kcal), p: Math.round(m.tot.p), c: Math.round(m.tot.c), f: Math.round(m.tot.f)
+      });
+      lg.textContent = "Added to today";
+      lg.disabled = true;
+    }
+  });
+  $("#shuffle").addEventListener("click", () => {
+    state.mealOffset = (state.mealOffset + 1) % 7;
+    state.mealSwaps = {};
+    renderMeals();
+    persist();
+  });
+  $("#printPlan").addEventListener("click", () => window.print());
+
+  // Delete all
+  let wipeTimer = null;
+  $("#wipe").addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    if (btn.dataset.armed !== "1") {
+      btn.dataset.armed = "1";
+      btn.textContent = "Tap again to delete everything";
+      wipeTimer = setTimeout(() => { btn.dataset.armed = ""; btn.textContent = "Delete all saved data"; }, 4000);
+      return;
+    }
+    clearTimeout(wipeTimer);
+    btn.dataset.armed = "";
+    btn.textContent = "Delete all saved data";
+    state.days = {};
+    state.plan = null;
+    changed();
+  });
+
+  // Trial, subscribe, access code
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-trial]")) {
+      if (!state.premium.start) state.premium.start = Date.now();
+      persist();
+      refreshAccess();
+      return;
+    }
+    const sub = e.target.closest("[data-subscribe]");
+    if (sub) {
+      const link = sub.dataset.subscribe === "yearly" ? CONFIG.paymentLinkYearly : CONFIG.paymentLinkMonthly;
+      if (link) window.open(link, "_blank", "noopener");
+      else $("#payMsg").textContent = "Payments aren't connected yet. Site owner: add your Paystack or Flutterwave payment link in CONFIG.";
+    }
+  });
+  $("#codeForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const code = $("#codeInput").value.trim().toUpperCase();
+    const ok = CONFIG.accessCodes.some((c) => String(c).trim().toUpperCase() === code);
+    if (ok) {
+      state.premium.paid = true;
+      persist();
+      refreshAccess();
+      $("#codeMsg").textContent = "Premium unlocked. Thank you!";
+      e.target.reset();
+    } else {
+      $("#codeMsg").textContent = "That code isn't valid. Check it and try again.";
+    }
+  });
+
+  // Waitlist
+  $("#waitForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("#waitEmail").value.trim();
+    const msg = $("#waitMsg");
+    if (!email) return;
+    if (!CONFIG.waitlistEndpoint) {
+      msg.textContent = "The waitlist isn't connected yet. Site owner: add your form link in CONFIG at the top of the script.";
+      return;
+    }
+    try {
+      const res = await fetch(CONFIG.waitlistEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email })
+      });
+      if (!res.ok) throw new Error("bad response");
+      msg.textContent = "Thanks! You're on the list.";
+      e.target.reset();
+    } catch (err) {
+      msg.textContent = "Something went wrong. Please try again in a moment.";
+    }
+  });
+
+  /* ============ START ============ */
+  async function init() {
+    renderChips();
+    fillPlanForm();
+    renderPremium();
+    renderContact();
+    renderAll();
+    const saved = await store.load();
+    if (saved) {
+      if (saved.goal > 0) $("#goal").value = saved.goal;
+      if (saved.days && typeof saved.days === "object") state.days = saved.days;
+      if (saved.plan) state.plan = saved.plan;
+      if (saved.premium && typeof saved.premium === "object") state.premium = { start: saved.premium.start || null, paid: !!saved.premium.paid };
+      if (typeof saved.mealOffset === "number") state.mealOffset = saved.mealOffset;
+      if (saved.mealSwaps && typeof saved.mealSwaps === "object") state.mealSwaps = saved.mealSwaps;
+      if (saved.profile) { Object.assign(state.profile, saved.profile); fillPlanForm(); }
+      store.saved = true;
+    }
+    renderAll();
+    renderPremium();
+  }
+  init();
+</script>
+</body>
+</html>
