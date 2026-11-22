@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NaijaPlate: Calorie and Weight Goal Planner</title>
+<meta name="description" content="NaijaPlate: track calories with Nigerian foods, get daily gram targets for losing or gaining weight, and a weekly meal plan that fits your diet.">
+<meta name="theme-color" content="#1F7A5C">
+<meta property="og:title" content="NaijaPlate: Calorie and Weight Goal Planner">
+<meta property="og:description" content="Track Nigerian foods, get gram targets for your weight goal, and a weekly meal plan. Try Premium free for 7 days.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
 <style>
   :root {
     --bg: #E9F0ED;
@@ -242,6 +248,27 @@
   .history-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-top: 14px; }
   #saveStatus { color: var(--muted); font-size: 0.86rem; margin: 0; max-width: 60ch; }
 
+  /* ---------- Extras: water, streak, weight, report, share ---------- */
+  .streak { margin: 0 0 12px; font-weight: 700; }
+  #streakTrack { margin: 14px 0 0; }
+  .water { margin-top: 16px; }
+  .water-top { display: flex; justify-content: space-between; font-size: 0.92rem; margin-bottom: 6px; }
+  .cups { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cup { width: 30px; height: 38px; border: 2px solid var(--protein); border-radius: 4px 4px 12px 12px; background: transparent; cursor: pointer; padding: 0; }
+  .cup.on { background: var(--protein); }
+  .weight-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+  @media (max-width: 520px) { .weight-row { grid-template-columns: 1fr 1fr; } .weight-row .btn { grid-column: 1 / -1; } }
+  #wStats { margin: 14px 0; }
+  #weightPanel .mactions { margin-top: 4px; }
+  .report { display: none; }
+
+  /* ---------- Diet ---------- */
+  .diet-box { display: grid; gap: 12px; grid-template-columns: 1fr; margin-bottom: 12px; align-items: end; }
+  @media (min-width: 720px) { .diet-box { grid-template-columns: 1fr 2fr; } }
+  .avoid { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  .avoid legend { font-size: 0.86rem; color: var(--muted); padding: 0 4px; }
+  .avoid label { display: flex; gap: 6px; align-items: center; }
+
   /* ---------- Trial and pricing ---------- */
   .trial-banner { background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; font-size: 0.92rem; }
   .trial-banner a { color: var(--ring); font-weight: 700; }
@@ -310,6 +337,15 @@
     .panel { border: 0; padding: 0; }
     .mcard { break-inside: avoid; }
   }
+
+  @media print {
+    body.print-report .report { display: block !important; color: #000; }
+    body.print-report #view-meals, body.print-report #share, body.print-report #tools, body.print-report #contact, body.print-report #trialBanner { display: none !important; }
+    .report h1 { margin: 0 0 4px; font-size: 1.5rem; }
+    .report table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    .report th, .report td { border-bottom: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+    .report .sum { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 10px 0; }
+  }
 </style>
 </head>
 <body>
@@ -356,6 +392,8 @@
       </div>
       <div class="prog-rows" id="macroRows"></div>
       <p class="prog-hint" id="macroHint"></p>
+      <p class="streak" id="streakTrack"></p>
+      <div class="water" id="water"></div>
     </section>
 
     <section class="panel" id="foods" aria-label="Find foods">
@@ -446,6 +484,25 @@
           <button type="button" class="btn quiet" id="printPlan">Print or save PDF</button>
         </div>
       </div>
+      <div class="diet-box no-print" id="dietBox">
+        <div class="field">
+          <label for="pDiet">My diet</label>
+          <select id="pDiet">
+            <option value="all">I eat everything</option>
+            <option value="pescatarian">Pescatarian (fish, no meat)</option>
+            <option value="vegetarian">Vegetarian (no meat or fish)</option>
+            <option value="vegan">Vegan (no animal products)</option>
+          </select>
+        </div>
+        <fieldset class="avoid">
+          <legend>Avoid completely</legend>
+          <label><input type="checkbox" id="aNuts"> Groundnuts</label>
+          <label><input type="checkbox" id="aEggs"> Eggs</label>
+          <label><input type="checkbox" id="aFish"> Fish</label>
+          <label><input type="checkbox" id="aDairy"> Dairy</label>
+        </fieldset>
+      </div>
+      <p class="chart-note" id="dietNote" style="margin:0 0 12px"></p>
       <div id="mealPlan"></div>
     </div>
   </section>
@@ -454,6 +511,7 @@
   <section id="view-progress" hidden>
     <div class="panel" aria-label="Weekly summary">
       <h2>Your last 7 days</h2>
+      <p class="streak" id="streakProg"></p>
       <div class="stats">
         <div class="stat"><div class="v" id="sAvg">0</div><div class="l">average kcal per logged day</div></div>
         <div class="stat"><div class="v" id="sLogged">0/7</div><div class="l">days logged</div></div>
@@ -466,6 +524,29 @@
         <p id="saveStatus">Your history saves automatically when you add food.</p>
         <button class="btn quiet" id="wipe" type="button">Delete all saved data</button>
       </div>
+    </div>
+
+    <div class="panel" id="weightPanel" style="margin-top:16px" aria-label="Weight log">
+      <h2>Weight log</h2>
+      <div class="weight-row field">
+        <div><label for="wKg">Weight (kg)</label><input id="wKg" type="number" min="30" max="250" step="0.1" inputmode="decimal"></div>
+        <div><label for="wDate">Date</label><input id="wDate" type="date"></div>
+        <button class="btn" id="wAdd" type="button">Log weight</button>
+      </div>
+      <p class="chart-note" id="wMsg" aria-live="polite" style="min-height:1.3em"></p>
+      <div id="wChart"></div>
+      <div class="stats" id="wStats"></div>
+      <div class="mactions">
+        <button class="btn quiet" id="wUndo" type="button">Remove last entry</button>
+        <button class="btn quiet" id="wUse" type="button">Use latest weight in My plan</button>
+      </div>
+    </div>
+
+    <div class="panel" id="reportPanel" style="margin-top:16px" aria-label="Weekly report">
+      <h2>Weekly report</h2>
+      <p class="chart-note" style="margin-top:0">A printable summary of your last 7 days: calories, macros, and weight. Useful to share with a dietitian or coach. Premium feature.</p>
+      <div class="mactions"><button class="btn" id="printReport" type="button">Print or save report</button></div>
+      <p class="chart-note" id="reportMsg" aria-live="polite"></p>
     </div>
   </section>
 
@@ -505,6 +586,25 @@
     <div class="sponsor" id="sponsorSlot"></div>
   </section>
 
+  <section class="panel no-print" id="share" aria-label="Share" style="margin-top:24px">
+    <h2>Share NaijaPlate</h2>
+    <p class="chart-note" style="margin-top:0">Know someone who wants to eat better? Send them the link.</p>
+    <div class="mactions">
+      <a class="btn" id="shareWa" href="#" target="_blank" rel="noopener">Share on WhatsApp</a>
+      <button class="btn quiet" id="shareNative" type="button" hidden>Share</button>
+      <button class="btn quiet" id="shareCopy" type="button">Copy link</button>
+    </div>
+    <p class="chart-note" id="shareMsg" aria-live="polite" style="min-height:1.3em"></p>
+  </section>
+
+  <section class="panel no-print" id="tools" aria-label="Helpful tools" style="margin-top:24px" hidden>
+    <h2>Helpful tools</h2>
+    <p class="chart-note" style="margin-top:0">Some of these links may earn NaijaPlate a small commission at no extra cost to you.</p>
+    <div class="mgrid" id="toolsList"></div>
+  </section>
+
+  <div class="report" id="report"></div>
+
   <section class="panel no-print" id="contact" aria-label="Contact" style="margin-top:24px" hidden>
     <h2>Contact NaijaPlate</h2>
     <p class="chart-note" style="margin-top:0">Questions, feedback, or want to advertise? Reach out.</p>
@@ -528,6 +628,9 @@
     waitlistEndpoint: "",               // paste a Formspree or similar form URL to receive emails
     contactEmail: "oayo80652@gmail.com", // shown in the Contact section and on the advertise card
     contactPhone: "09053761263",        // shown as Call and WhatsApp buttons
+    siteUrl: "",                        // your published link, e.g. "https://naijaplate.netlify.app" (used by the Share buttons)
+    analyticsDomain: "",                // optional: your domain for Plausible analytics, e.g. "naijaplate.com"
+    affiliates: [],                     // e.g. [{ name: "Digital kitchen scale", text: "Weigh your food in grams", url: "https://example.com" }]
     sponsors: []                        // e.g. [{ name: "FitHub Lagos", text: "10% off gym passes", url: "https://example.com" }]
   };
 
@@ -588,7 +691,43 @@
     ["Yoghurt, plain", "Drinks & extras", "1 cup", 150, 8, 11, 8],
     ["Soft drink", "Drinks & extras", "1 can (330 ml)", 140, 0, 35, 0],
     ["Vegetable or palm oil", "Drinks & extras", "1 tablespoon", 120, 0, 0, 14],
-    ["Sugar", "Drinks & extras", "1 teaspoon", 16, 0, 4, 0]
+    ["Sugar", "Drinks & extras", "1 teaspoon", 16, 0, 4, 0],
+    ["Coconut rice", "Staples", "1 cup (~200 g)", 320, 5, 48, 12],
+    ["Tuwo shinkafa", "Staples", "1 wrap (~250 g)", 290, 5, 64, 0.8],
+    ["Ewa agoyin (beans with pepper sauce)", "Staples", "1 cup", 330, 13, 36, 14],
+    ["Boli (roasted plantain)", "Staples", "1 medium (~150 g)", 185, 1.5, 49, 0.4],
+    ["Asaro (yam porridge)", "Staples", "1 cup", 300, 3, 45, 12],
+    ["Abacha (African salad)", "Staples", "1 cup", 280, 6, 35, 13],
+    ["Ekuru", "Staples", "1 wrap (~100 g)", 150, 7, 20, 5],
+    ["Garri, soaked (plain)", "Staples", "1 bowl (4 tablespoons garri)", 215, 1, 52, 0.5],
+    ["Ofe onugbu (bitterleaf soup)", "Soups & stews", "1 cup", 250, 14, 6, 19],
+    ["Ogbono soup", "Soups & stews", "1 cup (~240 g)", 330, 13, 8, 29],
+    ["Edikang ikong soup", "Soups & stews", "1 cup", 260, 18, 6, 18],
+    ["Banga soup", "Soups & stews", "1 cup", 400, 15, 10, 34],
+    ["Goat meat pepper soup", "Soups & stews", "1 bowl", 180, 22, 4, 8],
+    ["Catfish pepper soup", "Soups & stews", "1 bowl", 190, 24, 3, 9],
+    ["Goat meat, boiled", "Protein", "100 g", 143, 27, 0, 3],
+    ["Fried turkey wing", "Protein", "1 piece", 290, 17, 6, 22],
+    ["Stockfish", "Protein", "50 g", 145, 32, 0, 1.2],
+    ["Sardines, canned in oil", "Protein", "1 small tin (~90 g)", 190, 22, 0, 11],
+    ["Gizzard and plantain (gizdodo)", "Protein", "1 cup", 310, 17, 28, 15],
+    ["Corn on the cob", "Snacks", "1 medium", 130, 5, 29, 2],
+    ["Kilishi (dried spiced beef)", "Snacks", "30 g", 100, 16, 3, 3],
+    ["Gala sausage roll", "Snacks", "1 piece", 300, 6, 25, 19],
+    ["Egg roll", "Snacks", "1 piece", 280, 9, 26, 15],
+    ["Doughnut", "Snacks", "1 piece", 250, 3, 30, 13],
+    ["Kuli-kuli", "Snacks", "30 g", 170, 8, 8, 12],
+    ["Cashew nuts", "Snacks", "1 handful (~28 g)", 160, 5, 9, 13],
+    ["Coconut chunks", "Snacks", "30 g", 105, 1, 4, 10],
+    ["Peanut butter", "Snacks", "1 tablespoon", 95, 4, 3, 8],
+    ["Zobo, no sugar", "Drinks & extras", "1 cup", 20, 0, 5, 0],
+    ["Zobo, sweetened", "Drinks & extras", "1 cup", 90, 0, 22, 0],
+    ["Kunu", "Drinks & extras", "1 cup", 150, 3, 32, 1],
+    ["Fura da nono", "Drinks & extras", "1 bowl", 250, 8, 40, 6],
+    ["Coconut water", "Drinks & extras", "1 cup", 45, 0.5, 11, 0],
+    ["Chapman", "Drinks & extras", "1 glass", 110, 0, 27, 0],
+    ["Malt drink", "Drinks & extras", "1 bottle (330 ml)", 140, 2, 33, 0],
+    ["Tea with milk and sugar", "Drinks & extras", "1 cup", 60, 2, 9, 2]
   ].map((r, i) => ({ id: "f" + i, name: r[0], cat: r[1], serving: r[2], kcal: r[3], p: r[4], c: r[5], f: r[6] }));
 
   const CATS = ["All", "Staples", "Soups & stews", "Protein", "Snacks", "Fruit & veg", "Drinks & extras"];
@@ -604,7 +743,8 @@
   const PROTEINS = {
     chicken: { name: "Grilled chicken breast", p: 31, c: 0,   f: 3.6 },
     fish:    { name: "Grilled fish",           p: 26, c: 0,   f: 2.7 },
-    egg:     { name: "Boiled eggs",            p: 13, c: 1.1, f: 11 }
+    egg:     { name: "Boiled eggs",            p: 13, c: 1.1, f: 11 },
+    soya:    { name: "Tofu or soya chunks",    p: 16, c: 3,   f: 8.5 }
   };
   const PACES = {
     lose:     [{ id: "gentle", label: "Gentle (about 0.2 kg per week)", delta: -250 }, { id: "steady", label: "Steady (about 0.45 kg per week)", delta: -500 }],
@@ -629,7 +769,7 @@
     fish:        { n: "Grilled fish", k: 128, p: 26, c: 0, f: 2.7 },
     egg:         { n: "Boiled eggs", k: 155, p: 13, c: 1.1, f: 11 },
     beef:        { n: "Lean beef, stewed", k: 217, p: 26, c: 0, f: 12 },
-    moimoi:      { n: "Moi moi", k: 140, p: 8, c: 13, f: 6 },
+    moimoi:      { n: "Moi moi (plain)", k: 140, p: 8, c: 13, f: 6 },
     akara:       { n: "Akara", k: 250, p: 10, c: 20, f: 15 },
     stew:        { n: "Tomato stew", k: 167, p: 10, c: 5, f: 12 },
     salad:       { n: "Salad vegetables", k: 25, p: 1.5, c: 5, f: 0.2 },
@@ -642,7 +782,25 @@
     pineapple:   { n: "Pineapple", k: 50, p: 0.5, c: 13, f: 0.1 },
     watermelon:  { n: "Watermelon", k: 30, p: 0.6, c: 7.6, f: 0.2 },
     groundnuts:  { n: "Roasted groundnuts", k: 571, p: 25, c: 18, f: 50 },
-    yoghurt:     { n: "Plain yoghurt", k: 61, p: 3.3, c: 4.5, f: 3.3 }
+    yoghurt:     { n: "Plain yoghurt", k: 61, p: 3.3, c: 4.5, f: 3.3 },
+    soya:        { n: "Tofu or soya chunks", k: 144, p: 16, c: 3, f: 8.5 },
+    stewveg:     { n: "Tomato stew (meat-free)", k: 110, p: 2, c: 6, f: 9 },
+    efoveg:      { n: "Efo riro (meat-free)", k: 80, p: 3.5, c: 3, f: 6 },
+    okraveg:     { n: "Okra soup (meat-free)", k: 50, p: 2, c: 5, f: 3 },
+    egusiveg:    { n: "Egusi soup (meat-free)", k: 140, p: 6, c: 4, f: 12 },
+    corn:        { n: "Roasted corn", k: 96, p: 3.4, c: 21, f: 1.5 }
+  };
+  // Diet tags: what a food contains (soups and stews are assumed to be made with meat or fish)
+  const TAGS = { beef: ["meat"], chicken: ["meat"], fish: ["fish"], egg: ["egg"], yoghurt: ["dairy"], groundnuts: ["nut"], stew: ["meat"], efo: ["meat"], okra: ["meat"], egusi: ["meat"] };
+  // Replacements when a food is not allowed
+  const FOOD_ALT = { stew: "stewveg", efo: "efoveg", okra: "okraveg", egusi: "egusiveg", yoghurt: "orange", groundnuts: "corn" };
+  const PROTEIN_CHAIN = ["chicken", "fish", "egg", "beef", "soya", "moimoi", "akara"];
+  const SHORT = {
+    oats: "oats", bread: "bread", yam: "boiled yam", plantain: "boiled plantain", sweetpotato: "sweet potato", rice: "rice", beans: "beans",
+    eba: "eba", amala: "amala", fufu: "fufu", spaghetti: "spaghetti", chicken: "grilled chicken", fish: "grilled fish", egg: "boiled eggs",
+    beef: "beef", moimoi: "moi moi", akara: "akara", soya: "tofu", stew: "tomato stew", stewveg: "tomato stew", efo: "efo riro", efoveg: "efo riro",
+    okra: "okra soup", okraveg: "okra soup", egusi: "egusi soup", egusiveg: "egusi soup", salad: "salad", banana: "banana", apple: "apple",
+    orange: "orange", pineapple: "pineapple", watermelon: "watermelon", groundnuts: "groundnuts", corn: "roasted corn", yoghurt: "yoghurt"
   };
   // st = scaled staple, pr = protein sized to the protein target, fx = fixed extras [food, grams]
   const MEAL_TEMPLATES = {
@@ -758,7 +916,9 @@
     mealSwaps: {},
     mealDay: (new Date().getDay() + 6) % 7,
     premium: { start: null, paid: false },
-    profile: { sex: "male", age: 22, weight: 70, height: 172, activity: 1.375, goal: "lose", pace: "steady", meals: 3, staple: "rice", protein: "chicken" }
+    weights: [],
+    water: {},
+    profile: { sex: "male", age: 22, weight: 70, height: 172, activity: 1.375, goal: "lose", pace: "steady", meals: 3, staple: "rice", protein: "chicken", diet: "all", avoid: { nuts: false, eggs: false, fish: false, dairy: false } }
   };
 
   function getGoal() { const g = parseFloat($("#goal").value); return g > 0 ? g : 2000; }
@@ -769,7 +929,7 @@
     return t;
   }
   async function persist() {
-    await store.save({ goal: getGoal(), days: state.days, plan: state.plan, profile: state.profile, mealOffset: state.mealOffset, mealSwaps: state.mealSwaps, premium: state.premium });
+    await store.save({ goal: getGoal(), days: state.days, plan: state.plan, profile: state.profile, mealOffset: state.mealOffset, mealSwaps: state.mealSwaps, premium: state.premium, weights: state.weights, water: state.water });
     renderSaveStatus();
   }
   function renderSaveStatus() {
@@ -899,6 +1059,12 @@
     $("#pProtein").innerHTML = Object.entries(PROTEINS).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("");
     $("#pStaple").value = pr.staple;
     $("#pProtein").value = pr.protein;
+    $("#pDiet").value = pr.diet || "all";
+    const av = pr.avoid || {};
+    $("#aNuts").checked = !!av.nuts;
+    $("#aEggs").checked = !!av.eggs;
+    $("#aFish").checked = !!av.fish;
+    $("#aDairy").checked = !!av.dairy;
     fillPace();
   }
 
@@ -957,7 +1123,14 @@
     // Grams of food per meal
     const meals = pr.meals || 3;
     const st = STAPLES[pr.staple] || STAPLES.rice;
-    const pt = PROTEINS[pr.protein] || PROTEINS.chicken;
+    const ban = dietBan();
+    let ptKey = PROTEINS[pr.protein] ? pr.protein : "chicken";
+    let dietSwap = "";
+    if (!isAllowed(ptKey, ban)) {
+      const alt = Object.keys(PROTEINS).find((k) => isAllowed(k, ban));
+      if (alt) { dietSwap = ` Your diet excludes ${PROTEINS[ptKey].name.toLowerCase()}, so ${PROTEINS[alt].name.toLowerCase()} is shown instead.`; ptKey = alt; }
+    }
+    const pt = PROTEINS[ptKey];
     const stapleG = round5((r.c / meals) / (st.c / 100));
     const proteinNeeded = Math.max(0, r.p / meals - (stapleG * st.p) / 100);
     const proteinG = round5(proteinNeeded / (pt.p / 100));
@@ -966,7 +1139,7 @@
     const oilTbsp = Math.round(oilG / 14);
     const vegG = 150;
     const totalG = stapleG + proteinG + vegG;
-    const eggNote = pr.protein === "egg" ? ` (about ${Math.max(1, Math.round(proteinG / 50))} eggs)` : "";
+    const eggNote = ptKey === "egg" ? ` (about ${Math.max(1, Math.round(proteinG / 50))} eggs)` : "";
 
     // Weight projection
     const w0 = pr.weight;
@@ -1045,7 +1218,7 @@
             <div class="meal"><div class="n">${proteinG} g</div><div class="l"><i style="background:var(--protein)"></i>${escapeHtml(pt.name)}${eggNote}</div></div>
             <div class="meal"><div class="n">${vegG} g+</div><div class="l"><i style="background:var(--veg)"></i>Vegetables or salad</div></div>
           </div>
-          <p class="chart-note">${oilG > 0 ? `Cooking oil and other fats: about ${oilG} g a day in total (around ${oilTbsp} tablespoon${oilTbsp === 1 ? "" : "s"}).` : "Your meals already cover your fat target, so keep added oil light."} Weights are cooked, ready-to-eat amounts. Swap the staple or protein above to see new amounts.</p>
+          <p class="chart-note">${oilG > 0 ? `Cooking oil and other fats: about ${oilG} g a day in total (around ${oilTbsp} tablespoon${oilTbsp === 1 ? "" : "s"}).` : "Your meals already cover your fat target, so keep added oil light."} Weights are cooked, ready-to-eat amounts. Swap the staple or protein above to see new amounts.${dietSwap}</p>
         </div>
 
         <div class="panel">
@@ -1110,6 +1283,72 @@
   }
 
   /* ============ RENDER: MEAL PLAN ============ */
+  /* ============ DIET RULES ============ */
+  function dietBan() {
+    const pr = state.profile;
+    const d = pr.diet || "all";
+    const a = pr.avoid || {};
+    const ban = new Set();
+    if (d === "vegetarian" || d === "vegan") { ban.add("meat"); ban.add("fish"); }
+    if (d === "pescatarian") ban.add("meat");
+    if (d === "vegan") { ban.add("egg"); ban.add("dairy"); }
+    if (a.nuts) ban.add("nut");
+    if (a.eggs) ban.add("egg");
+    if (a.fish) ban.add("fish");
+    if (a.dairy) ban.add("dairy");
+    return ban;
+  }
+  const isAllowed = (key, ban) => !(TAGS[key] || []).some((t) => ban.has(t));
+  function resolveFood(key, ban) {
+    if (isAllowed(key, ban)) return key;
+    const alt = FOOD_ALT[key];
+    return alt && isAllowed(alt, ban) ? alt : null;
+  }
+  function pickProtein(ban, seed) {
+    const list = PROTEIN_CHAIN.filter((k) => isAllowed(k, ban));
+    return list.length ? list[seed % list.length] : null;
+  }
+  const capFirst = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+  function joinNames(list) {
+    if (list.length <= 1) return list.join("");
+    return list.slice(0, -1).join(", ") + " and " + list[list.length - 1];
+  }
+  function resolveTemplate(t, ban, seed) {
+    const fx = [];
+    t.fx.forEach(([key, g]) => { const k = resolveFood(key, ban); if (k) fx.push([k, g]); });
+    let st = resolveFood(t.st, ban) || "banana";
+    let minSt = t.minSt, maxSt = t.maxSt;
+    if (st !== t.st) {
+      const ratio = COMP[t.st].k / COMP[st].k;
+      if (minSt != null) minSt *= ratio;
+      if (maxSt != null) maxSt *= ratio;
+    }
+    const pr = t.pr ? (isAllowed(t.pr, ban) ? t.pr : pickProtein(ban, seed)) : null;
+    let name;
+    if (t.pr === null) {
+      name = capFirst(joinNames(fx.map((x) => SHORT[x[0]]).concat(SHORT[st])));
+    } else {
+      const others = [pr].concat(fx.map((x) => x[0])).filter(Boolean).map((k) => SHORT[k]);
+      name = capFirst(SHORT[st]) + (others.length ? " with " + joinNames(others) : "");
+    }
+    return { name, st, pr, fx, minSt, maxSt };
+  }
+  function dietNoteText() {
+    const pr = state.profile;
+    const d = pr.diet || "all";
+    const a = pr.avoid || {};
+    const what = d === "vegetarian" ? "vegetarian meals" : d === "pescatarian" ? "pescatarian meals (fish, no meat)" : d === "vegan" ? "vegan meals" : "meals for everyone";
+    const av = [];
+    if (a.nuts) av.push("groundnuts");
+    if (a.eggs) av.push("eggs");
+    if (a.fish) av.push("fish");
+    if (a.dairy) av.push("dairy");
+    let t = "Showing " + what + (av.length ? ", without " + joinNames(av) : "") + ". No meal uses pork or alcohol.";
+    if (d !== "all") t += " Soups and stews are meat-free.";
+    t += " Always check ingredients and labels yourself, especially if you have an allergy.";
+    return t;
+  }
+
   function buildMeal(t, K, pM) {
     const parts = [];
     let Kf = 0, pf = 0;
@@ -1147,6 +1386,7 @@
 
   function buildWeek(r) {
     const slots = SLOT_SETS[state.profile.meals] || SLOT_SETS[3];
+    const ban = dietBan();
     const mainSum = slots.filter((s) => s[0] !== "s").reduce((a, s) => a + s[2], 0);
     return DAY_NAMES.map((dn, d) => {
       const meals = slots.map((s, j) => {
@@ -1154,7 +1394,7 @@
         const raw = d + j * 2 + state.mealOffset + (state.mealSwaps[d + "-" + j] || 0);
         const idx = ((raw % list.length) + list.length) % list.length;
         const pM = s[0] === "s" ? 0 : (r.p * s[2]) / mainSum;
-        const m = buildMeal(list[idx], r.kcal * s[2], pM);
+        const m = buildMeal(resolveTemplate(list[idx], ban, d + j), r.kcal * s[2], pM);
         m.label = s[1];
         m.key = d + "-" + j;
         return m;
@@ -1169,16 +1409,30 @@
     return `<li><span>${escapeHtml(x.name)}${extra}</span><b>${x.g} g</b></li>`;
   }
 
+  function sampleDayHtml() {
+    const rr = computePlan(state.profile);
+    if (rr.error) return "";
+    const day0 = buildWeek(rr)[0];
+    const cards = day0.meals.map((m) => `<div class="mcard">
+        <div class="mhead"><div><div class="mlabel">${m.label}</div><div class="mname">${escapeHtml(m.name)}</div></div><div class="mkcal">${fmt(m.tot.kcal)} kcal</div></div>
+        <ul class="mparts">${m.parts.map(partText).join("")}</ul></div>`).join("");
+    return `<h3 class="mt">Free sample: ${day0.name}, ${fmt(day0.tot.kcal)} kcal</h3>
+      <div class="mgrid">${cards}</div>
+      <p class="chart-note">This is one day built from the numbers on your My plan tab. Premium unlocks all 7 days, diet options, the grocery list, and printing.</p>`;
+  }
+
   function renderMeals() {
     const box = $("#mealPlan");
     $("#mealActions").hidden = !hasPremium();
+    $("#dietBox").hidden = !hasPremium();
+    $("#dietNote").textContent = "";
     if (!hasPremium()) {
       const t = trialInfo();
       const start = t.status === "none" ? `<button type="button" class="btn" data-trial>Start ${CONFIG.trialDays}-day free trial</button>` : "";
       const note = t.status === "ended" ? "Your free trial has ended." : `Try it free for ${CONFIG.trialDays} days, no card needed.`;
       box.innerHTML = `<div class="lock"><h3>The weekly meal plan is a Premium feature</h3>
         <p>Get 7 days of meals in grams, a grocery list, and a print-ready plan. Premium is ${money(CONFIG.monthlyPrice)} per month. ${note}</p>
-        <div class="mactions">${start}<a class="btn quiet" href="#premium">See pricing</a></div></div>`;
+        <div class="mactions">${start}<a class="btn quiet" href="#premium">See pricing</a></div></div>${sampleDayHtml()}`;
       return;
     }
     const r = computePlan(state.profile);
@@ -1186,6 +1440,7 @@
       box.innerHTML = `<p class="empty">${escapeHtml(r.error)} Open <button type="button" class="link" data-goto="plan">My plan</button> to add your details.</p>`;
       return;
     }
+    $("#dietNote").textContent = dietNoteText();
     const week = buildWeek(r);
     const d = Math.min(Math.max(state.mealDay, 0), 6);
     const day = week[d];
@@ -1300,8 +1555,8 @@
     $("#priceMonthly").textContent = money(CONFIG.monthlyPrice);
     const saving = CONFIG.monthlyPrice * 12 - CONFIG.yearlyPrice;
     $("#priceYearly").textContent = `or ${money(CONFIG.yearlyPrice)} per year` + (saving > 0 ? ` (save ${money(saving)})` : "");
-    const free = ["Calorie and macro tracker", "Weight-goal planner with gram targets", "Nigerian and everyday foods", "7-day progress chart"];
-    const pro = ["Everything in Free", "Weekly meal plans in grams, with meal swaps", "Grocery list for the week", "Print or save your plan as a PDF", "Coming soon: sync across devices", "Coming soon: report to share with a dietitian", "Coming soon: larger food database"];
+    const free = ["Calorie and macro tracker with 80+ Nigerian and everyday foods", "Weight-goal planner with gram targets", "Weight log, water tracker, and streaks", "7-day progress chart"];
+    const pro = ["Everything in Free", "Weekly meal plans in grams, with meal swaps", "Meals that fit your diet: vegetarian, vegan, pescatarian, and foods you avoid", "Grocery list for the week", "Print or save your plan as a PDF", "Printable weekly progress report to share with a dietitian", "Coming soon: sync across devices"];
     $("#freeList").innerHTML = free.map((x) => `<li>${x}</li>`).join("");
     $("#proList").innerHTML = pro.map((x) => `<li>${x}</li>`).join("");
     renderPremiumCta();
@@ -1315,6 +1570,126 @@
       const contact = CONFIG.contactEmail ? ` <a href="mailto:${escapeHtml(CONFIG.contactEmail)}">Get in touch</a>` : "";
       slot.innerHTML = `<small>Partner spot</small>Reach people who are actively planning what they eat. Gyms, meal-prep services, and food brands can feature here.${contact}`;
     }
+  }
+
+  /* ============ EXTRAS: STREAK, WATER, WEIGHT, REPORT, SHARE ============ */
+  function streakCount() {
+    const has = (k) => totalsOf(dayList(k)).kcal > 0;
+    let k = todayKey();
+    if (!has(k)) k = addDays(k, -1);
+    let n = 0;
+    while (has(k) && n < 3650) { n++; k = addDays(k, -1); }
+    return n;
+  }
+  function streakText() {
+    const n = streakCount();
+    if (n === 0) return "Log a meal today to start your streak.";
+    return `${n}-day logging streak. ${n >= 7 ? "Great consistency!" : "Keep it going."}`;
+  }
+
+  const WATER_GOAL = 8;
+  function renderWater() {
+    const n = Math.min(state.water[state.date] || 0, WATER_GOAL);
+    let cups = "";
+    for (let i = 1; i <= WATER_GOAL; i++) {
+      cups += `<button type="button" class="cup${i <= n ? " on" : ""}" data-cup="${i}" aria-label="${i} glass${i === 1 ? "" : "es"} of water" aria-pressed="${i <= n}"></button>`;
+    }
+    $("#water").innerHTML = `<div class="water-top"><span>Water</span><b>${n} of ${WATER_GOAL} glasses (${fmt(n * 250)} ml)</b></div><div class="cups">${cups}</div>`;
+  }
+
+  function renderWeights() {
+    const w = state.weights.slice().sort((a, b) => (a.d < b.d ? -1 : 1));
+    const dateEl = $("#wDate");
+    dateEl.max = todayKey();
+    if (!dateEl.value) dateEl.value = todayKey();
+    if (!w.length) {
+      $("#wChart").innerHTML = `<p class="empty">Log your weight to see your trend here.</p>`;
+      $("#wStats").innerHTML = "";
+      return;
+    }
+    const last = w.slice(-12);
+    const W = 320, H = 150, pl = 40, pr = 14, pt = 14, pb = 26;
+    const kgs = last.map((x) => x.kg);
+    const minW = Math.min(...kgs) - 0.5, maxW = Math.max(...kgs) + 0.5;
+    const t = (d) => parseKey(d).getTime();
+    const t0 = t(last[0].d), t1 = t(last[last.length - 1].d);
+    const X = (d) => (last.length === 1 ? pl + (W - pl - pr) / 2 : pl + ((t(d) - t0) / (t1 - t0)) * (W - pl - pr));
+    const Y = (kg) => pt + ((maxW - kg) / (maxW - minW)) * (H - pt - pb);
+    const pts = last.map((x) => `${X(x.d).toFixed(1)},${Y(x.kg).toFixed(1)}`).join(" ");
+    const dl = (d) => parseKey(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const first = last[0], lastE = last[last.length - 1];
+    $("#wChart").innerHTML = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight trend from ${first.kg} kg to ${lastE.kg} kg">
+        <line class="axis" x1="${pl}" y1="${H - pb}" x2="${W - pr}" y2="${H - pb}"></line>
+        <line class="axis" x1="${pl}" y1="${pt}" x2="${pl}" y2="${H - pb}"></line>
+        <text x="${pl - 6}" y="${pt + 4}" text-anchor="end">${maxW.toFixed(1)}</text>
+        <text x="${pl - 6}" y="${H - pb + 4}" text-anchor="end">${minW.toFixed(1)}</text>
+        ${last.length > 1 ? `<polyline class="line" points="${pts}"></polyline>` : ""}
+        ${last.map((x) => `<circle class="dot" cx="${X(x.d).toFixed(1)}" cy="${Y(x.kg).toFixed(1)}" r="4"></circle>`).join("")}
+        <text class="val" x="${X(first.d) + (last.length > 1 ? 4 : 0)}" y="${Y(first.kg) - 8}" text-anchor="${last.length > 1 ? "start" : "middle"}">${first.kg} kg</text>
+        ${last.length > 1 ? `<text class="val" x="${X(lastE.d)}" y="${Y(lastE.kg) - 8}" text-anchor="end">${lastE.kg} kg</text>` : ""}
+        <text x="${X(first.d)}" y="${H - 8}" text-anchor="${last.length > 1 ? "start" : "middle"}">${dl(first.d)}</text>
+        ${last.length > 1 ? `<text x="${X(lastE.d)}" y="${H - 8}" text-anchor="end">${dl(lastE.d)}</text>` : ""}
+      </svg>`;
+    const all0 = w[0], allN = w[w.length - 1];
+    const change = allN.kg - all0.kg;
+    const days = Math.round((t(allN.d) - t(all0.d)) / 86400000);
+    const rate = days >= 7 ? (change / days) * 7 : null;
+    const sign = (v) => (v > 0 ? "+" : "") + v.toFixed(1);
+    $("#wStats").innerHTML = `
+      <div class="stat"><div class="v">${allN.kg} kg</div><div class="l">latest weight</div></div>
+      <div class="stat"><div class="v">${sign(change)} kg</div><div class="l">change since ${dl(all0.d)}</div></div>
+      <div class="stat"><div class="v">${rate === null ? "-" : sign(rate) + " kg"}</div><div class="l">${rate === null ? "per week (needs 7+ days)" : "per week on average"}</div></div>`;
+  }
+
+  function buildReport() {
+    const goal = getGoal();
+    const today = todayKey();
+    const keys = [];
+    for (let i = 6; i >= 0; i--) keys.push(addDays(today, -i));
+    const rows = keys.map((k) => ({ k, t: totalsOf(dayList(k)), has: dayList(k).length > 0 }));
+    const logged = rows.filter((r) => r.has && r.t.kcal > 0);
+    const avg = (key) => (logged.length ? logged.reduce((a, r) => a + r.t[key], 0) / logged.length : 0);
+    const onGoal = logged.filter((r) => r.t.kcal <= goal).length;
+    const dl = (k) => parseKey(k).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+    const w = state.weights.slice().sort((a, b) => (a.d < b.d ? -1 : 1));
+    const wLine = w.length ? `Latest weight: ${w[w.length - 1].kg} kg` + (w.length > 1 ? ` (${(w[w.length - 1].kg - w[0].kg > 0 ? "+" : "") + (w[w.length - 1].kg - w[0].kg).toFixed(1)} kg since ${dl(w[0].d)})` : "") : "No weight entries logged.";
+    const planLine = state.plan ? `Daily targets: ${fmt(state.plan.kcal)} kcal, protein ${state.plan.p} g, carbs ${state.plan.c} g, fat ${state.plan.f} g.` : `Daily goal: ${fmt(goal)} kcal.`;
+    const body = rows.map((r) => `<tr><td>${dl(r.k)}</td><td>${r.has ? fmt(r.t.kcal) : "-"}</td><td>${r.has ? Math.round(r.t.p) : "-"}</td><td>${r.has ? Math.round(r.t.c) : "-"}</td><td>${r.has ? Math.round(r.t.f) : "-"}</td></tr>`).join("");
+    return `<h1>NaijaPlate weekly report</h1>
+      <p>${dl(keys[0])} to ${dl(keys[6])}</p>
+      <div class="sum"><span>Average: <b>${fmt(avg("kcal"))} kcal</b> per logged day</span><span>Days logged: <b>${logged.length}/7</b></span><span>Days at or under goal: <b>${onGoal}</b></span><span>Logging streak: <b>${streakCount()} days</b></span></div>
+      <p>${planLine}</p>
+      <p>Average macros per logged day: protein ${Math.round(avg("p"))} g, carbs ${Math.round(avg("c"))} g, fat ${Math.round(avg("f"))} g.</p>
+      <p>${wLine}</p>
+      <table><thead><tr><th>Day</th><th>kcal</th><th>Protein (g)</th><th>Carbs (g)</th><th>Fat (g)</th></tr></thead><tbody>${body}</tbody></table>
+      <p style="font-size:0.85rem">Estimates based on standard formulas and average foods. General guidance, not medical advice.</p>`;
+  }
+
+  function shareUrl() {
+    if (CONFIG.siteUrl) return CONFIG.siteUrl;
+    return typeof location !== "undefined" ? location.href.split("#")[0] : "";
+  }
+  const SHARE_TEXT = "I'm tracking my food with NaijaPlate. It has Nigerian foods, calorie targets in grams, and weekly meal plans. Try it free for 7 days:";
+  function renderShare() {
+    $("#shareWa").href = "https://wa.me/?text=" + encodeURIComponent(SHARE_TEXT + " " + shareUrl());
+    $("#shareNative").hidden = !(typeof navigator !== "undefined" && navigator.share);
+  }
+  function renderTools() {
+    const list = CONFIG.affiliates || [];
+    $("#tools").hidden = !list.length;
+    $("#toolsList").innerHTML = list.map((a) => `<div class="mcard">
+        <div class="mname">${escapeHtml(a.name)}</div>
+        <p class="chart-note" style="margin:6px 0 10px">${escapeHtml(a.text)}</p>
+        <a class="btn quiet" href="${escapeHtml(a.url)}" target="_blank" rel="sponsored noopener">View</a>
+      </div>`).join("");
+  }
+  function loadAnalytics() {
+    if (!CONFIG.analyticsDomain || typeof document.createElement !== "function") return;
+    const sc = document.createElement("script");
+    sc.defer = true;
+    sc.setAttribute("data-domain", CONFIG.analyticsDomain);
+    sc.src = "https://plausible.io/js/script.js";
+    document.head.appendChild(sc);
   }
 
   /* ============ VIEW + RENDER ALL ============ */
@@ -1334,6 +1709,10 @@
     renderPlate();
     renderTotals();
     renderHistory();
+    renderWater();
+    renderWeights();
+    $("#streakTrack").textContent = streakText();
+    $("#streakProg").textContent = streakText();
     renderSaveStatus();
   }
   function changed() { renderAll(); persist(); }
@@ -1482,8 +1861,93 @@
     btn.dataset.armed = "";
     btn.textContent = "Delete all saved data";
     state.days = {};
+    state.weights = [];
+    state.water = {};
     state.plan = null;
     changed();
+  });
+
+  // Water
+  $("#water").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-cup]");
+    if (!b) return;
+    const n = parseInt(b.dataset.cup, 10);
+    const cur = state.water[state.date] || 0;
+    const next = cur === n ? n - 1 : n;
+    if (next <= 0) delete state.water[state.date];
+    else state.water[state.date] = next;
+    renderWater();
+    persist();
+  });
+
+  // Weight log
+  $("#wAdd").addEventListener("click", () => {
+    const kg = parseFloat($("#wKg").value);
+    const d = $("#wDate").value || todayKey();
+    const msg = $("#wMsg");
+    if (!(kg >= 30 && kg <= 250)) { msg.textContent = "Enter a weight between 30 and 250 kg."; return; }
+    if (d > todayKey()) { msg.textContent = "Choose today or an earlier date."; return; }
+    state.weights = state.weights.filter((x) => x.d !== d);
+    state.weights.push({ d, kg: Math.round(kg * 10) / 10 });
+    state.weights.sort((a, b) => (a.d < b.d ? -1 : 1));
+    $("#wKg").value = "";
+    msg.textContent = "Weight logged.";
+    renderWeights();
+    persist();
+  });
+  $("#wUndo").addEventListener("click", () => {
+    if (!state.weights.length) return;
+    const sorted = state.weights.slice().sort((a, b) => (a.d < b.d ? -1 : 1));
+    const lastD = sorted[sorted.length - 1].d;
+    state.weights = state.weights.filter((x) => x.d !== lastD);
+    $("#wMsg").textContent = "Last entry removed.";
+    renderWeights();
+    persist();
+  });
+  $("#wUse").addEventListener("click", () => {
+    if (!state.weights.length) { $("#wMsg").textContent = "Log a weight first."; return; }
+    const sorted = state.weights.slice().sort((a, b) => (a.d < b.d ? -1 : 1));
+    state.profile.weight = sorted[sorted.length - 1].kg;
+    fillPlanForm();
+    persist();
+    $("#wMsg").textContent = `My plan now uses ${state.profile.weight} kg. Open My plan to see your new targets.`;
+  });
+
+  // Weekly report (Premium)
+  $("#printReport").addEventListener("click", () => {
+    const msg = $("#reportMsg");
+    if (!hasPremium()) {
+      msg.innerHTML = `The weekly report is a Premium feature. <a href="#premium">Start your free trial</a> to use it.`;
+      return;
+    }
+    msg.textContent = "";
+    $("#report").innerHTML = buildReport();
+    document.body.classList.add("print-report");
+    window.print();
+  });
+  window.addEventListener("afterprint", () => document.body.classList.remove("print-report"));
+
+  // Share
+  $("#shareNative").addEventListener("click", () => {
+    if (typeof navigator !== "undefined" && navigator.share) navigator.share({ title: "NaijaPlate", text: SHARE_TEXT, url: shareUrl() }).catch(() => {});
+  });
+  $("#shareCopy").addEventListener("click", () => {
+    const url = shareUrl();
+    const msg = $("#shareMsg");
+    const fallback = () => { msg.textContent = "Copy this link: " + url; };
+    if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => { msg.textContent = "Link copied."; }).catch(fallback);
+    } else fallback();
+  });
+
+  // Diet
+  $("#dietBox").addEventListener("change", () => {
+    const pr = state.profile;
+    pr.diet = $("#pDiet").value;
+    pr.avoid = { nuts: $("#aNuts").checked, eggs: $("#aEggs").checked, fish: $("#aFish").checked, dairy: $("#aDairy").checked };
+    state.mealSwaps = {};
+    renderMeals();
+    persist();
   });
 
   // Trial, subscribe, access code
@@ -1546,6 +2010,9 @@
     fillPlanForm();
     renderPremium();
     renderContact();
+    renderTools();
+    renderShare();
+    loadAnalytics();
     renderAll();
     const saved = await store.load();
     if (saved) {
@@ -1553,6 +2020,8 @@
       if (saved.days && typeof saved.days === "object") state.days = saved.days;
       if (saved.plan) state.plan = saved.plan;
       if (saved.premium && typeof saved.premium === "object") state.premium = { start: saved.premium.start || null, paid: !!saved.premium.paid };
+      if (Array.isArray(saved.weights)) state.weights = saved.weights.filter((x) => x && x.d && x.kg > 0);
+      if (saved.water && typeof saved.water === "object") state.water = saved.water;
       if (typeof saved.mealOffset === "number") state.mealOffset = saved.mealOffset;
       if (saved.mealSwaps && typeof saved.mealSwaps === "object") state.mealSwaps = saved.mealSwaps;
       if (saved.profile) { Object.assign(state.profile, saved.profile); fillPlanForm(); }
